@@ -1,10 +1,24 @@
-const express = require('express');
-const app = express();
+/**
+ * The function starts a server by connecting to a database and listening on a specified port.
+ */
+const app = require('./src/app'); // Importar la configuración de la app
+const connectDB = require('./src/config/dataBase'); // Importar la función de conexión a la base de datos
 
-app.get('/', (req, res) => {
-  res.send('Hello World');
-});
+const PORT = process.env.PORT || 3000;
 
-app.listen(3000, () => {
-  console.log('Server running at http://localhost:3000/');
-});
+async function startServer() {
+  try {
+    // Conectar a la base de datos
+    await connectDB();
+    console.log('Conexión a la base de datos establecida correctamente.');
+
+    // Iniciar el servidor
+    app.listen(PORT, () => {
+      console.log(`Servidor corriendo en el puerto ${PORT}`);
+    });
+  } catch (error) {
+    console.error('Error al iniciar el servidor:', error);
+  }
+}
+
+startServer();
