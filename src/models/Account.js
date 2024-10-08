@@ -12,10 +12,6 @@ const AccountSchema = new mongoose.Schema({
         type: String,
         required: true // Debe estar hasheada 
     },
-    fecha_creacion: {
-        type: Date,
-        default: Date.now
-    },
     ultimo_acceso: {
         type: Date
     },
@@ -37,10 +33,6 @@ const AccountSchema = new mongoose.Schema({
         be set to `null` until a value is explicitly assigned to it when updating the account
         password. */
         fecha_ultimo_cambio: { type: Date },
-       /* `contrasenia_temporal: { type: Boolean, default: false }` within the `estado_contrasenia`
-       field of the `Account` schema is defining a property that indicates whether the account
-       password is a temporary password. */
-        contrasenia_temporal: { type: Boolean, default: false }
     },
     // Gestión del proceso de recuperación de contraseña
     recuperacion_contrasenia: {
