@@ -153,7 +153,28 @@ exports.login = async (req, res) => {
         res.status(500).json({ message: 'Error en el inicio de sesión', error: error.message });
     }
 };
+// Cerrar sesión del usuario (elimina el token de la sesión actual)
+exports.logout = async (req, res) => {
+    const token = req.token; // Suponiendo que `authMiddleware` agrega `req.token`
+    const userId = req.user.user_id; // ID del usuario autenticado
 
+    try {
+        // Buscar la sesión correspondiente al token actual
+        const session = await Session.findOne({ user_id: userId, token });
+        
+        if (!session) {
+            return res.status(404).json({ message: 'Sesión no encontrada.' });
+        }
+
+        // Marcar la sesión como revocada
+        session.revocada = true;
+        await session.save();
+
+        res.status(200).json({ message: 'Sesión cerrada exitosamente.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error al cerrar sesión', error: error.message });
+    }
+};
 
 // Verificar MFA (función auxiliar)
 const verifyMfaCode = (mfa_code, user) => {

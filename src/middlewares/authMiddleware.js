@@ -9,6 +9,7 @@ require('dotenv').config(); // Para acceder al secreto JWT
 
 // Middleware para verificar la autenticación del token JWT
 const authMiddleware = async (req, res, next) => {
+    // Extraer el token del encabezado Authorization
     const token = req.header('Authorization')?.replace('Bearer ', '');
 
     if (!token) {
@@ -32,8 +33,9 @@ const authMiddleware = async (req, res, next) => {
             return res.status(403).json({ message: 'Usuario no autorizado o inactivo.' });
         }
 
-        // Añadir la información del usuario a la solicitud para que esté disponible en las rutas
+        // Añadir la información del usuario y el token a la solicitud para que esté disponible en las rutas
         req.user = { user_id: userId, tipo_usuario: user.tipo_usuario };
+        req.token = token; // Agregar el token aquí
 
         // Actualizar la última actividad de la sesión
         session.ultima_actividad = new Date();
