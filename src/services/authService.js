@@ -2,6 +2,7 @@
 authentication and security. Here is a breakdown of what each function does: */
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
 const Account = require('../models/Account');
 const FailedAttempt = require('../models/FailedAttempt');
 const authUtils = require('../utils/authUtils');
@@ -117,3 +118,50 @@ exports.forcePasswordRotation = async (accountId) => {
         throw new Error('Error al verificar la rotación de contraseña: ' + error.message);
     }
 };
+
+// Configuración del transporte SMTP usando ElasticEmail
+const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: process.env.SMTP_PORT, // Puerto SMTP de Gmail
+    secure: false, // true para usar SSL/TLS, false para usar el puerto predeterminado
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS
+    },
+    tls: {
+      rejectUnauthorized: false // Habilitar cuando estás trabajando con un entorno de producción seguro
+    }
+  })
+  
+
+  // Servicio para enviar el correo de notificación de cambio de contraseña
+ exports.sendPasswordChangeNotification = async (destinatario) => {
+    try {
+      // Cuerpo del correo electrónico
+      const body = `
+        <div style="font-family: Arial, sans-serif; color: #043464; background-color: #ECF0F1; padding: 20px; border-radius: 10px;">
+          <h2 style="color: #043464; font-weight: bold; font-size: 24px;">Cambio de contraseña exitoso</h2>
+          <p style="font-size: 16px;">Hola ${destinatario},</p>
+          <p style="font-size: 16px;">Queremos informarte que has cambiado tu contraseña exitosamente. Si no realizaste este cambio, por favor contacta a nuestro equipo de soporte inmediatamente.</p>
+          <p style="font-size: 16px;">Si no solicitaste este cambio, te recomendamos que asegures la seguridad de tu cuenta cambiando tu contraseña inmediatamente.</p>
+          <p style="font-weight: bold; font-size: 16px;">Atentamente,</p>
+          <p style="font-weight: bold; font-size: 16px;">Tu equipo de soporte</p>
+        </div>
+      `;
+  
+      // Opciones del correo
+      const mailOptions = {
+        from:process.env.EMAIL_FROM, // Correo del remitente configurado en .env
+        to: destinatario, // Destinatario del correo
+        subject: 'Notificación de cambio de contraseña', // Asunto del correo
+        html: body // Contenido HTML del correo
+      };
+  
+      // Enviar el correo
+      await transporter.sendMail(mailOptions);
+      console.log('Correo de notificación enviado con éxito a', destinatario);
+    } catch (error) {
+      console.error('Error al enviar el correo de notificación:', error);
+      throw new Error('Error al enviar el correo electrónico');
+    }
+  }

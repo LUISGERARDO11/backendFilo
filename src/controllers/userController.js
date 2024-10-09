@@ -6,9 +6,6 @@ const Account = require('../models/Account');
 const PassHistory = require('../models/PassHistory');
 const FailedAttempt = require('../models/FailedAttempt');
 const Session = require('../models/Session');
-const userService = require('../services/userService');
-const authService = require('../services/authService'); // Para el hash y verificación de contraseñas
-
 
 // Actualización del perfil del usuario (nombre, dirección, teléfono)
 exports.updateProfile = async (req, res) => {
@@ -85,43 +82,6 @@ exports.getProfile = async (req, res) => {
         res.status(200).json(user); // Retornar solo los campos seleccionados
     } catch (error) {
         res.status(500).json({ message: 'Error al obtener el perfil', error: error.message });
-    }
-};
-// Método para cambiar la contraseña del usuario autenticado
-exports.changePassword = async (req, res) => {
-    const userId = req.user.user_id; // El ID del usuario autenticado
-    const { currentPassword, newPassword } = req.body;
-
-    try {
-        // Buscar la cuenta vinculada al usuario
-        const account = await Account.findOne({ user_id: userId });
-        if (!account) {
-            return res.status(404).json({ message: 'Cuenta no encontrada' });
-        }
-
-        // Verificar la contraseña actual
-        const isMatch = await authService.verifyPassword(currentPassword, account.contrasenia_hash);
-        if (!isMatch) {
-            return res.status(400).json({ message: 'Contraseña actual incorrecta' });
-        }
-
-        // Verificar y guardar el historial de contraseñas
-        const result = await userService.trackPasswordHistory(account._id, account.contrasenia_hash, newPassword);
-        if (!result.success) {
-            return res.status(400).json({ message: result.message });
-        }
-
-        // Cifrar la nueva contraseña
-        const newHashedPassword = await authService.hashPassword(newPassword);
-
-        // Actualizar el hash de la contraseña y la fecha de último cambio
-        account.contrasenia_hash = newHashedPassword;
-        account.estado_contrasenia.fecha_ultimo_cambio = new Date();
-        await account.save();
-
-        res.status(200).json({ message: 'Contraseña actualizada exitosamente.' });
-    } catch (error) {
-        res.status(500).json({ message: 'Error al cambiar la contraseña', error: error.message });
     }
 };
 // Eliminar la cuenta del cliente autenticado

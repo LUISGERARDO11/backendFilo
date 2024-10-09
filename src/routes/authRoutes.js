@@ -6,6 +6,7 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
 const authMiddleware = require('../middlewares/authMiddleware');
+const tokenExpirationMiddleware = require('../middlewares/verifyTokenExpiration');
 
 // Ruta para registrar un nuevo usuario
 // POST /register
@@ -18,5 +19,9 @@ router.post('/login', authController.login);
 // Ruta para cerrar sesión 
 // POST /logout
 router.post('/logout', authMiddleware, authController.logout)
+
+// Ruta para actualizar la contraseña del usuario autenticado
+// PUT /change-profile
+router.put('/change-password', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration,authController.changePassword);
 
 module.exports = router;

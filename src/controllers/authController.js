@@ -1,16 +1,25 @@
 /* The above code is a Node.js application that handles user registration, login, and session
 management for an authentication system. Here is a summary of the main functionalities: */
 
-const authService = require('../services/authService');
+
 const User = require('../models/User');
 const Account = require('../models/Account');
 const Session = require('../models/Session');
+const userService = require('../services/userService');
+const authService = require('../services/authService'); // Para el hash y verificación de contraseñas
+const authUtils = require('../utils/authUtils');
 
 // Registro de usuarios
 exports.register = async (req, res) => {
     const { nombre, email, telefono, password, tipo_usuario, mfa_activado } = req.body;
 
     try {
+        // Validar si el correo es real usando ZeroBounce
+        const isEmailValid = await authUtils.validateEmailWithZeroBounce(email);
+        if (!isEmailValid) {
+            return res.status(400).json({ message: 'El correo electrónico no es válido.' });
+        }
+
         // Validar si el usuario ya existe
         let existingUser = await User.findOne({ email });
         if (existingUser) {
@@ -53,7 +62,6 @@ exports.register = async (req, res) => {
         res.status(500).json({ message: 'Error en el registro de usuario', error: error.message });
     }
 };
-
 // Inicio de sesión
 exports.login = async (req, res) => {
     const { email, password, mfa_code } = req.body;
@@ -175,6 +183,54 @@ exports.logout = async (req, res) => {
         res.status(500).json({ message: 'Error al cerrar sesión', error: error.message });
     }
 };
+// Método para cambiar la contraseña del usuario autenticado
+exports.changePassword = async (req, res) => {
+    const userId = req.user.user_id; // El ID del usuario autenticado
+    const { currentPassword, newPassword } = req.body;
+
+    try {
+        // Buscar la cuenta vinculada al usuario
+        const account = await Account.findOne({ user_id: userId });
+        if (!account) {
+            return res.status(404).json({ message: 'Cuenta no encontrada' });
+        }
+
+        // Verificar la contraseña actual
+        const isMatch = await authService.verifyPassword(currentPassword, account.contrasenia_hash);
+        if (!isMatch) {
+            return res.status(400).json({ message: 'Contraseña actual incorrecta' });
+        }
+
+        // Verificar y guardar el historial de contraseñas
+        const result = await userService.trackPasswordHistory(account._id, account.contrasenia_hash, newPassword);
+        if (!result.success) {
+            return res.status(400).json({ message: result.message });
+        }
+
+        // Cifrar la nueva contraseña
+        const newHashedPassword = await authService.hashPassword(newPassword);
+
+        // Actualizar el hash de la contraseña y la fecha de último cambio
+        account.contrasenia_hash = newHashedPassword;
+        account.estado_contrasenia.fecha_ultimo_cambio = new Date();
+        await account.save();
+
+        // Obtener la información del usuario para enviar la notificación por correo
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        // Enviar el correo de notificación al usuario
+        await authService.sendPasswordChangeNotification(user.email);
+
+        res.status(200).json({ message: 'Contraseña actualizada exitosamente y correo de confirmación enviado.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error al cambiar la contraseña', error: error.message });
+    }
+};
+
+
 
 // Verificar MFA (función auxiliar)
 const verifyMfaCode = (mfa_code, user) => {

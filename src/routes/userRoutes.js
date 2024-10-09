@@ -19,10 +19,6 @@ router.put('/profile', authMiddleware,tokenExpirationMiddleware.verifyTokenExpir
 // PUT /profile
 router.put('/change-address', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration,userController.updateUserProfile);
 
-// Ruta para actualizar la contraseña del usuario autenticado
-// PUT /change-profile
-router.put('/change-password', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration,userController.changePassword);
-
 // Ruta para que el cliente autenticado elimine su cuenta
 //DELETE / delete-account
 router.delete('/delete-account', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration,userController.deleteMyAccount);
