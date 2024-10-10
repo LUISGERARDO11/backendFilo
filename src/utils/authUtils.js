@@ -44,3 +44,23 @@ exports.validateEmailWithZeroBounce = async (email) => {
         throw new Error('Error al validar el correo electrónico');
     }
 };
+
+exports.validateEmail =async(email) =>{
+    const apiKey = process.env.MAILBOXLAYER_API_KEY; // Usa una variable de entorno para la API key
+    const url = `http://apilayer.net/api/check?access_key=${apiKey}&email=${email}`;
+
+    try {
+        const response = await axios.get(url);
+        const { format_valid, smtp_check, score } = response.data;
+
+        // Comprobamos si el correo es válido según los criterios
+        if (format_valid && smtp_check && score > 0.65) {
+            return { isValid: true, message: 'El correo electrónico es válido.' };
+        } else {
+            return { isValid: false, message: 'El correo electrónico no es válido o tiene baja calidad.' };
+        }
+    } catch (error) {
+        console.error('Error al validar el correo:', error);
+        return { isValid: false, message: 'Error al validar el correo.' };
+    }
+}
