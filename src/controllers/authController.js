@@ -15,10 +15,10 @@ exports.register = async (req, res) => {
 
     try {
         // Validar si el correo es real usando ZeroBounce
-        const isEmailValid = await authUtils.validateEmailWithZeroBounce(email);
-        if (!isEmailValid) {
-            return res.status(400).json({ message: 'El correo electrónico no es válido.' });
-        }
+        //const isEmailValid = await authUtils.validateEmailWithZeroBounce(email);
+        //if (!isEmailValid) {
+          //  return res.status(400).json({ message: 'El correo electrónico no es válido.' });
+        //}
 
         // Validar si el usuario ya existe
         let existingUser = await User.findOne({ email });
