@@ -30,10 +30,10 @@ exports.register = [
 
         try {
             // Validar si el correo es real usando ZeroBounce (esto ya está implementado)
-            const emailValidation = await authUtils.validateEmail(email);
-            if (!emailValidation.isValid) {
-                return res.status(400).json({ message: emailValidation.message });
-            }
+            //const emailValidation = await authUtils.validateEmail(email);
+            //if (!emailValidation.isValid) {
+              //  return res.status(400).json({ message: emailValidation.message });
+            //}
 
             // Validar si el usuario ya existe
             let existingUser = await User.findOne({ email });
