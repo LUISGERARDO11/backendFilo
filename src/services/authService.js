@@ -7,7 +7,6 @@ const Account = require('../models/Account');
 const FailedAttempt = require('../models/FailedAttempt');
 const authUtils = require('../utils/authUtils');
 const User = require('../models/User');
-const Account = require('../models/Account');
 
 require('dotenv').config();
 
