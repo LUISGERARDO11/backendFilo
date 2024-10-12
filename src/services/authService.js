@@ -6,6 +6,9 @@ const nodemailer = require('nodemailer');
 const Account = require('../models/Account');
 const FailedAttempt = require('../models/FailedAttempt');
 const authUtils = require('../utils/authUtils');
+const User = require('../models/User');
+const Account = require('../models/Account');
+
 require('dotenv').config();
 
 // Cifrar la contraseña antes de guardarla
@@ -50,7 +53,6 @@ exports.verifyJWT = (token) => {
 // Manejar intentos fallidos de inicio de sesión y bloquear cuentas si es necesario
 exports.handleFailedAttempt = async (user_id, ip) => {
     const MAX_FAILED_ATTEMPTS = 5; // Número máximo de intentos fallidos permitidos
-    const LOCK_DURATION = 30 * 60 * 1000; // Bloqueo de cuenta por 30 minutos
 
     // Buscar intentos fallidos previos del usuario
     let failedAttempt = await FailedAttempt.findOne({ user_id });
@@ -78,6 +80,13 @@ exports.handleFailedAttempt = async (user_id, ip) => {
             account.estado_contrasenia.requiere_cambio = true; // Forzar al usuario a cambiar la contraseña
             await account.save();
         }
+        // Cambiar el estado del usuario a 'bloqueado'
+        const user = await User.findById(user_id);
+        if (user) {
+            user.estado = 'bloqueado'; // Cambiar el estado del usuario a bloqueado
+            await user.save();
+        }
+  
 
         return { locked: true, message: 'Cuenta bloqueada temporalmente debido a múltiples intentos fallidos.' };
     }
@@ -165,3 +174,28 @@ const transporter = nodemailer.createTransport({
       throw new Error('Error al enviar el correo electrónico');
     }
   }
+
+  // Método para verificar si el usuario está bloqueado
+exports.isUserBlocked = async (userId) => {
+    try {
+        // Buscar la cuenta asociada al usuario
+        const account = await Account.findOne({ user_id: userId }).populate('user_id');
+        
+        if (!account) {
+            return { blocked: false, message: 'Cuenta no encontrada.' };
+        }
+
+        // Verificar si el usuario asociado a la cuenta está bloqueado
+        const user = account.user_id;
+        if (user.estado === 'bloqueado') {
+            return { blocked: true, message: 'El usuario está bloqueado.' };
+        }
+
+        // Si el usuario no está bloqueado
+        return { blocked: false, message: 'El usuario no está bloqueado.' };
+
+    } catch (error) {
+        console.error('Error verificando el estado del usuario:', error);
+        throw new Error('Error verificando el estado del usuario.');
+    }
+};

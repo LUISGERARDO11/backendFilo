@@ -2,7 +2,7 @@
 const express = require('express');
 const corsConfig = require('./config/corsConfig'); 
 const errorHandler = require('./middlewares/errorHandler');
-
+const { generalLimiter } = require('./middlewares/expressRateLimit');
 // Importar las rutas
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -15,6 +15,10 @@ app.use(express.json());
 
 // Aplicar la configuración de CORS
 app.use(corsConfig);
+
+// Aplicar el limitador general a todas las rutas
+app.use(generalLimiter);
+
 
 // Ruta de prueba
 app.get('/', (req, res) => {

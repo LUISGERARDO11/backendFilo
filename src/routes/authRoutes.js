@@ -6,11 +6,12 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
 const authMiddleware = require('../middlewares/authMiddleware');
+const { authLimiter } = require('../middlewares/expressRateLimit');
 const tokenExpirationMiddleware = require('../middlewares/verifyTokenExpiration');
 
 // Ruta para registrar un nuevo usuario
 // POST /register
-router.post('/register', authController.register);
+router.post('/register', authLimiter, authController.register);
 
 // Ruta para iniciar sesión y obtener un JWT
 // POST /login

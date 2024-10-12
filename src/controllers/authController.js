@@ -105,6 +105,10 @@ exports.login = [
                 return res.status(400).json({ message: 'Cuenta no encontrada' });
             }
 
+            const bloqueado = await authService.isUserBlocked(user._id);
+            if (bloqueado.blocked) {
+                return res.status(403).json({ message: bloqueado.message });
+            }
             // Verificar la contraseña utilizando el servicio
             const isMatch = await authService.verifyPassword(password, account.contrasenia_hash);
             if (!isMatch) {
@@ -115,6 +119,18 @@ exports.login = [
 
             // Limpiar los intentos fallidos si el inicio de sesión fue exitoso
             await authService.clearFailedAttempts(user._id);
+
+            // **2. Limitar el número de sesiones activas**
+            const activeSessionsCount = await Session.countDocuments({ user_id: user._id, revocada: false });
+
+            if (user.tipo_usuario === 'cliente' && activeSessionsCount >= 5) {
+                return res.status(403).json({ message: 'Límite de sesiones activas alcanzado (5 sesiones permitidas para usuarios tipo cliente).' });
+            }
+            
+            if (user.tipo_usuario === 'administrador' && activeSessionsCount >= 2) {
+                return res.status(403).json({ message: 'Límite de sesiones activas alcanzado (2 sesiones permitidas para administradores).' });
+            }
+            
 
             // Verificar MFA si está habilitado
             if (account.configuracion_2fa.enabled) {
@@ -144,7 +160,15 @@ exports.login = [
 
             await newSession.save();
 
-            res.status(200).json({ message: 'Inicio de sesión exitoso', token });
+            // Establecer la cookie con el token
+            res.cookie('token', token, {
+                httpOnly: true, 
+                secure: process.env.NODE_ENV === 'production', 
+                sameSite: 'Strict',
+                maxAge: 3600000 // 1 hora
+            });
+
+            res.status(200).json({ message: 'Inicio de sesión exitoso' });
         } catch (error) {
             res.status(500).json({ message: 'Error en el inicio de sesión', error: error.message });
         }
@@ -153,7 +177,7 @@ exports.login = [
 
 // Cerrar sesión del usuario (elimina el token de la sesión actual)
 exports.logout = async (req, res) => {
-    const token = req.token; // Suponiendo que `authMiddleware` agrega `req.token`
+    const token = req.cookies.token; // Obtener el token de la cookie
     const userId = req.user.user_id; // ID del usuario autenticado
 
     try {
@@ -168,11 +192,20 @@ exports.logout = async (req, res) => {
         session.revocada = true;
         await session.save();
 
+        // Limpiar la cookie del token para cerrar la sesión del usuario
+        res.clearCookie('token', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Strict'
+        });
+
+        // Responder con un mensaje de éxito
         res.status(200).json({ message: 'Sesión cerrada exitosamente.' });
     } catch (error) {
         res.status(500).json({ message: 'Error al cerrar sesión', error: error.message });
     }
 };
+
 // Método para cambiar la contraseña del usuario autenticado
 exports.changePassword = [
     // Validar y sanitizar entradas
@@ -213,6 +246,8 @@ exports.changePassword = [
             if (!user) {
                 return res.status(404).json({ message: 'Usuario no encontrado' });
             }
+            // Revocar todas las sesiones activas después del cambio de contraseña
+            await Session.updateMany({ user_id: userId, revocada: false }, { revocada: true });
 
             await authService.sendPasswordChangeNotification(user.email);
             res.status(200).json({ message: 'Contraseña actualizada exitosamente.' });
