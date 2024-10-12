@@ -8,6 +8,7 @@ const Session = require('../models/Session');
 const userService = require('../services/userService');
 const authService = require('../services/authService'); // Para el hash y verificación de contraseñas
 const authUtils = require('../utils/authUtils');
+const crypto = require('crypto');
 const { body, validationResult } = require('express-validator');
 
 // Registro de usuarios
@@ -47,11 +48,11 @@ exports.register = [
                 email,
                 telefono,
                 tipo_usuario,
-                mfa_activado
+                mfa_activado,
+                estado: 'pendiente'
             });
 
             const savedUser = await newUser.save();
-
             // Cifrar la contraseña utilizando el servicio
             const hashedPassword = await authService.hashPassword(password);
 
@@ -72,6 +73,15 @@ exports.register = [
 
             await newAccount.save();
 
+            // Generar token de verificación
+            const verificationToken = crypto.randomBytes(32).toString('hex');
+
+            // Guardar el token y la fecha de expiración en el usuario
+            savedUser.verificacionCorreoToken = verificationToken;
+            savedUser.verificacionCorreoExpira = Date.now() + 24 * 60 * 60 * 1000; // Expira en 24 horas
+            await savedUser.save();
+
+            await authService.sendVerificationEmail(savedUser.email, verificationToken);
             res.status(201).json({ message: 'Usuario registrado exitosamente', user: savedUser });
         } catch (error) {
             res.status(500).json({ message: 'Error en el registro de usuario', error: error.message });
@@ -98,6 +108,10 @@ exports.login = [
             const user = await User.findOne({ email });
             if (!user) {
                 return res.status(400).json({ message: 'Usuario no encontrado' });
+            }
+              // Verificar si el estado del usuario es "pendiente"
+            if (user.estado === 'pendiente') {
+                return res.status(403).json({ message: 'Debes verificar tu correo electrónico antes de iniciar sesión.' });
             }
 
             const account = await Account.findOne({ user_id: user._id });
@@ -257,6 +271,32 @@ exports.changePassword = [
     }
 ];
 
+// Verificar el correo electrónico del usuario
+exports.verifyEmail = async (req, res) => {
+    const { token } = req.query;
+
+    try {
+        // Buscar al usuario con el token de verificación
+        const user = await User.findOne({
+            verificacionCorreoToken: token,
+            verificacionCorreoExpira: { $gt: Date.now() } // Verificar que el token no ha expirado
+        });
+
+        if (!user) {
+            return res.status(400).json({ message: 'Token inválido o expirado.' });
+        }
+
+        // Activar la cuenta del usuario
+        user.estado = 'activo';
+        user.verificacionCorreoToken = undefined; // Limpiar el token
+        user.verificacionCorreoExpira = undefined;
+        await user.save();
+
+        res.status(200).json({ message: 'Correo verificado exitosamente. Ahora puedes iniciar sesión.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error al verificar el correo', error: error.message });
+    }
+};
 
 
 

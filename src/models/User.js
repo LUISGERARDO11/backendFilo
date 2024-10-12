@@ -30,12 +30,19 @@ const UserSchema = new mongoose.Schema({
     },
     estado: {
         type: String,
-        enum: ['activo', 'bloqueado', 'suspendido'],
-        default: 'activo'
+        enum: ['activo', 'bloqueado', 'pendiente'],
+        default: 'pendiente'
     },
     mfa_activado: {
         type: Boolean,
         default: false // Indica si el MFA está activado
+    },
+    //estos campos ayudan a validar el correo del usuario
+    verificacionCorreoToken: { 
+        type: String 
+    },
+    verificacionCorreoExpira: {
+        type: Date 
     }
 }, { timestamps: true }); // Añade createdAt y updatedAt automáticamente
 

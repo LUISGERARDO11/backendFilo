@@ -13,6 +13,10 @@ const tokenExpirationMiddleware = require('../middlewares/verifyTokenExpiration'
 // POST /register
 router.post('/register', authLimiter, authController.register);
 
+// Ruta para registrar que un usuario verifique su cuenta/email
+// POST /verify-email
+router.post('/verify-email', authController.verifyEmail);
+
 // Ruta para iniciar sesión y obtener un JWT
 // POST /login
 router.post('/login', authController.login);

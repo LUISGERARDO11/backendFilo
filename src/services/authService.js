@@ -173,7 +173,52 @@ const transporter = nodemailer.createTransport({
       throw new Error('Error al enviar el correo electrónico');
     }
   }
+  // Servicio para enviar el correo de notificación de cambio de contraseña
+  exports.sendVerificationEmail = async (destinatario, token) => {
+    try {
+     
+      // Cuerpo del correo electrónico
+      const body = (destinatario, token) => {
+        const baseUrls = {
+          development: ['http://localhost:4200', 'http://127.0.0.1:4200', 'http://localhost:3000', 'http://127.0.0.1:3000'],
+          production: [ 'https://backend-filo.vercel.app']
+        };
+  
+        const currentEnv = baseUrls[process.env.NODE_ENV] ? process.env.NODE_ENV : 'development'; 
+        const verificationLink = `${baseUrls[currentEnv][0]}/verify-email?token=${token}`;
+  
+        return `
+          <div style="font-family: Arial, sans-serif; color: #333; background-color: #f9f9f9; padding: 20px; border-radius: 10px;">
+            <h2 style="color: #043464; font-weight: bold; font-size: 24px;">Verificación de correo electrónico</h2>
+            <p style="font-size: 16px;">Hola ${destinatario},</p>
+            <p style="font-size: 16px;">Gracias por registrarte en nuestro servicio. Por favor, verifica tu dirección de correo electrónico haciendo clic en el enlace de abajo.</p>
+            <a href="${verificationLink}" style="display: inline-block; background-color: #043464; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Verificar correo electrónico</a>
+            <p style="font-size: 16px; margin-top: 20px;">Si no puedes hacer clic en el botón, copia y pega el siguiente enlace en tu navegador:</p>
+            <p style="font-size: 16px; word-break: break-all;">${verificationLink}</p>
+            <p style="font-weight: bold; font-size: 16px; margin-top: 20px;">Atentamente,</p>
+            <p style="font-weight: bold; font-size: 16px;">El equipo de soporte</p>
+          </div>
+        `;
+      };
+  
+      // Opciones del correo
+      const mailOptions = {
+        from: process.env.EMAIL_FROM, // Correo del remitente configurado en .env
+        to: destinatario, // Destinatario del correo
+        subject: 'Verificación de correo', // Asunto del correo
+        html: body(destinatario, token) // Contenido HTML del correo ejecutando la función
+      };
+  
+      // Enviar el correo
+      await transporter.sendMail(mailOptions);
+      console.log('Verificación de correo enviado con éxito a', destinatario);
+    } catch (error) {
+      console.error('Error al enviar el correo de verificación:', error);
+      throw new Error('Error al enviar el correo electrónico');
+    }
+  };
 
+  
   // Método para verificar si el usuario está bloqueado
 exports.isUserBlocked = async (userId) => {
     try {
