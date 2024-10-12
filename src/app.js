@@ -3,6 +3,7 @@ const express = require('express');
 const corsConfig = require('./config/corsConfig'); 
 const errorHandler = require('./middlewares/errorHandler');
 const { generalLimiter } = require('./middlewares/expressRateLimit');
+const cookieParser = require('cookie-parser');
 // Importar las rutas
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -19,6 +20,8 @@ app.use(corsConfig);
 // Aplicar el limitador general a todas las rutas
 app.use(generalLimiter);
 
+// Configura cookie-parser
+app.use(cookieParser());
 
 // Ruta de prueba
 app.get('/', (req, res) => {
