@@ -4,6 +4,7 @@ const corsConfig = require('./config/corsConfig');
 const errorHandler = require('./middlewares/errorHandler');
 const { generalLimiter } = require('./middlewares/expressRateLimit');
 const cookieParser = require('cookie-parser');
+const authUtils = require('./utils/authUtils');
 // Importar las rutas
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -27,6 +28,10 @@ app.use(cookieParser());
 app.get('/', (req, res) => {
   res.send('¡Hola Mundo!');
 });
+
+// Cargar la lista de contraseñas filtradas al iniciar la aplicación
+authUtils.loadPasswordList();
+
 
 // Rutas de autenticación y usuarios
 app.use('/auth', authRoutes); // Rutas de autenticación (registro, login)

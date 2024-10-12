@@ -9,6 +9,9 @@ const authMiddleware = require('../middlewares/authMiddleware');
 const { authLimiter } = require('../middlewares/expressRateLimit');
 const tokenExpirationMiddleware = require('../middlewares/verifyTokenExpiration');
 
+// Ruta para verificar si una contraseña está comprometida
+router.post('/check-password', authController.checkPassword);
+
 // Ruta para registrar un nuevo usuario
 // POST /register
 router.post('/register', authLimiter, authController.register);

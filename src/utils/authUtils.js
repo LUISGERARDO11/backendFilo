@@ -1,6 +1,8 @@
 /* This JavaScript code defines a function named `checkPasswordRotation` that is exported using
 `exports`. The function takes a parameter `fechaUltimoCambio`, which presumably represents the date
 of the last password change. */
+const fs = require('fs');
+const path = require('path');
 const axios = require('axios');
 
 // Función auxiliar para verificar el estado de la rotación de contraseñas
@@ -64,3 +66,30 @@ exports.validateEmail =async(email) =>{
         return { isValid: false, message: 'Error al validar el correo.' };
     }
 }
+
+let passwordList = new Set();
+
+// Función para cargar la lista de contraseñas
+const loadPasswordList = () => {
+    const filePath = path.join(__dirname, '..', '100k-most-used-passwords-NCSC.txt');
+    
+    fs.readFile(filePath, 'utf8', (err, data) => {
+        if (err) {
+            console.error('Error al leer el archivo de contraseñas:', err);
+            process.exit(1); // Salir si ocurre un error grave
+        }
+        // Almacena las contraseñas en un Set para búsquedas rápidas
+        passwordList = new Set(data.split('\n').map(password => password.trim()));
+        console.log('Lista de contraseñas cargada correctamente');
+    });
+};
+
+// Función para verificar si una contraseña está comprometida
+const isPasswordCompromised = (password) => {
+    return passwordList.has(password);
+};
+
+module.exports = {
+    loadPasswordList,
+    isPasswordCompromised
+};

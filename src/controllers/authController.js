@@ -1,7 +1,5 @@
 /* The above code is a Node.js application that handles user registration, login, and session
 management for an authentication system. Here is a summary of the main functionalities: */
-
-
 const User = require('../models/User');
 const Account = require('../models/Account');
 const Session = require('../models/Session');
@@ -10,6 +8,11 @@ const authService = require('../services/authService'); // Para el hash y verifi
 const authUtils = require('../utils/authUtils');
 const crypto = require('crypto');
 const { body, validationResult } = require('express-validator');
+
+// Función para generar un token único
+const generateRecoveryToken = () => {
+    return crypto.randomBytes(32).toString('hex');
+};
 
 // Registro de usuarios
 exports.register = [
@@ -220,6 +223,7 @@ exports.logout = async (req, res) => {
     }
 };
 
+//Los siguientes dos metodos son para cuando un usuario cambia su contraseña sabiendo la actual y colocando una nueva
 // Método para cambiar la contraseña del usuario autenticado
 exports.changePassword = [
     // Validar y sanitizar entradas
@@ -298,7 +302,43 @@ exports.verifyEmail = async (req, res) => {
     }
 };
 
+//Los siguientes dos métodos son para cuando un usuario reestablece su contraseña por que se le ha olvidado
+// Método para iniciar el proceso de recuperación de contraseña
+exports.initiatePasswordRecovery = async (req, res) => {
+    const { email } = req.body;
 
+    try {
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ message: 'Usuario no encontrado.' });
+        }
+
+        const account = await Account.findOne({ user_id: user._id });
+        if (!account) {
+            return res.status(404).json({ message: 'Cuenta no encontrada.' });
+        }
+
+        // Generar un token único y definir una caducidad de 15 minutos
+        const recoveryToken = generateRecoveryToken();
+        const expiration = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
+
+        // Guardar el token y la fecha de expiración en el modelo Account
+        account.recuperacion_contrasenia = {
+            codigo: recoveryToken,
+            expiracion_codigo: expiration,
+            codigo_valido: true
+        };
+        await account.save();
+
+        // Enviar el token al correo del usuario
+        const recoveryLink = `https://example.com/recover-password/${recoveryToken}`;
+        await sendRecoveryEmail(user.email, recoveryLink);
+
+        res.status(200).json({ message: 'Se ha enviado un enlace de recuperación a tu correo electrónico.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error al iniciar el proceso de recuperación de contraseña.', error: error.message });
+    }
+};
 
 // Verificar MFA (función auxiliar)
 const verifyMfaCode = (mfa_code, user) => {
@@ -314,5 +354,28 @@ exports.revokeTokens = async (user_id) => {
         await Session.updateMany({ user_id, revocada: false }, { revocada: true });
     } catch (error) {
         console.error('Error revocando sesiones anteriores:', error);
+    }
+};
+
+// Controlador para verificar si una contraseña está comprometida
+exports.checkPassword = (req, res) => {
+    const { password } = req.body;
+
+    if (!password) {
+        return res.status(400).json({ error: 'Debe proporcionar una contraseña' });
+    }
+
+    const isCompromised = authUtils.isPasswordCompromised(password);
+
+    if (isCompromised) {
+        return res.json({ 
+            status: 'compromised', 
+            message: 'La contraseña ha sido filtrada. Por favor, elige una más segura.' 
+        });
+    } else {
+        return res.json({ 
+            status: 'safe', 
+            message: 'La contraseña no se encuentra en la lista de contraseñas filtradas.' 
+        });
     }
 };

@@ -218,7 +218,78 @@ const transporter = nodemailer.createTransport({
     }
   };
 
-  
+
+  exports.sendRecoveryEmail = async (destinatario, token) => {
+    try {
+        // Definir el cuerpo del correo electrónico
+        const body = (destinatario, token) => {
+            const baseUrls = {
+                development: ['http://localhost:4200', 'http://127.0.0.1:4200', 'http://localhost:3000', 'http://127.0.0.1:3000'],
+                production: ['https://backend-filo.vercel.app']
+            };
+            
+            const currentEnv = baseUrls[process.env.NODE_ENV] ? process.env.NODE_ENV : 'development'; 
+            const recoveryLink = `${baseUrls[currentEnv][0]}/reset-password?token=${token}`;
+            
+            return `
+              <div style="font-family: Arial, sans-serif; color: #333; background-color: #f9f9f9; padding: 20px; border-radius: 10px;">
+                <h2 style="color: #d9534f; font-weight: bold; font-size: 24px;">Recuperación de contraseña</h2>
+                <p style="font-size: 16px;">Hola ${destinatario},</p>
+                <p style="font-size: 16px;">Has solicitado restablecer tu contraseña. Haz clic en el enlace de abajo para proceder:</p>
+                <a href="${recoveryLink}" style="display: inline-block; background-color: #d9534f; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Restablecer contraseña</a>
+                <p style="font-size: 16px; margin-top: 20px;">Si no puedes hacer clic en el botón, copia y pega el siguiente enlace en tu navegador:</p>
+                <p style="font-size: 16px; word-break: break-all;">${recoveryLink}</p>
+                <p style="font-weight: bold; font-size: 16px; margin-top: 20px;">Atentamente,</p>
+                <p style="font-weight: bold; font-size: 16px;">El equipo de soporte</p>
+              </div>
+            `;
+        };
+
+        // Opciones del correo
+        const mailOptions = {
+            from: process.env.EMAIL_FROM, // Remitente
+            to: destinatario, // Destinatario del correo
+            subject: 'Recuperación de contraseña', // Asunto del correo
+            html: body(destinatario, token) // Contenido HTML del correo
+        };
+
+        // Enviar el correo
+        await transporter.sendMail(mailOptions);
+        console.log('Correo de recuperación enviado con éxito a', destinatario);
+    } catch (error) {
+        console.error('Error al enviar el correo de recuperación:', error);
+        throw new Error('Error al enviar el correo electrónico');
+    }
+};
+
+  // Verificar el correo electrónico del usuario
+exports.verifyEmail = async (req, res) => {
+    const { token } = req.query;
+
+    try {
+        // Buscar al usuario con el token de verificación
+        const user = await User.findOne({
+            verificacionCorreoToken: token,
+            verificacionCorreoExpira: { $gt: Date.now() } // Verificar que el token no ha expirado
+        });
+
+        if (!user) {
+            return res.status(400).json({ message: 'Token inválido o expirado.' });
+        }
+
+        // Activar la cuenta del usuario
+        user.estado = 'activo';
+        user.verificacionCorreoToken = undefined; // Limpiar el token
+        user.verificacionCorreoExpira = undefined;
+        await user.save();
+
+        res.status(200).json({ message: 'Correo verificado exitosamente. Ahora puedes iniciar sesión.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error al verificar el correo', error: error.message });
+    }
+};
+
+
   // Método para verificar si el usuario está bloqueado
 exports.isUserBlocked = async (userId) => {
     try {
