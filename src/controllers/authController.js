@@ -123,7 +123,7 @@ exports.login = [
     // Validar y sanitizar entradas
     body('email').isEmail().normalizeEmail(),
     body('password').not().isEmpty().trim().escape(),
-    //body('recaptchaToken').not().isEmpty().withMessage('Se requiere el token de reCAPTCHA'),
+    body('recaptchaToken').not().isEmpty().withMessage('Se requiere el token de reCAPTCHA'),
 
     async (req, res) => {
         const errors = validationResult(req);
@@ -135,18 +135,18 @@ exports.login = [
 
         try {
             // 1. Verificar el token de reCAPTCHA con la API de Google
-            //const recaptchaSecretKey = process.env.RECAPTCHA_SECRET_KEY;
-            //const recaptchaResponse = await axios.post(`https://www.google.com/recaptcha/api/siteverify`, null, {
-               // params: {
-                    //secret: recaptchaSecretKey,
-                    //response: recaptchaToken
-                //}
-            //});
+            const recaptchaSecretKey = process.env.RECAPTCHA_SECRET_KEY;
+            const recaptchaResponse = await axios.post(`https://www.google.com/recaptcha/api/siteverify`, null, {
+                params: {
+                    secret: recaptchaSecretKey,
+                    response: recaptchaToken
+                }
+            });
 
-            //const { success, score } = recaptchaResponse.data;
-            //if (!success || score < 0.5) {
-                //return res.status(400).json({ message: 'Fallo en la verificación de reCAPTCHA' });
-            //}
+            const { success, score } = recaptchaResponse.data;
+            if (!success || score < 0.5) {
+                return res.status(400).json({ message: 'Fallo en la verificación de reCAPTCHA' });
+            }
             
             // Buscar al usuario y su cuenta vinculada
             const user = await User.findOne({ email });
