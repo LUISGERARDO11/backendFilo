@@ -140,7 +140,7 @@ const transporter = nodemailer.createTransport({
       rejectUnauthorized: false // Habilitar cuando estás trabajando con un entorno de producción seguro
     }
   })
-  
+
   // Servicio para enviar el correo de notificación de cambio de contraseña
  exports.sendPasswordChangeNotification = async (destinatario) => {
     try {
@@ -213,45 +213,33 @@ exports.sendVerificationEmailVersion2 = async (destinatario, token) => {
     }
 };
 
-  exports.sendRecoveryEmail = async (destinatario, token) => {
+exports.sendOTPEmail = async (destinatario, otp) => {
     try {
-        // Definir el cuerpo del correo electrónico
-        const body = (destinatario, token) => {
-            const baseUrls = {
-                development: ['http://localhost:4200', 'http://127.0.0.1:4200', 'http://localhost:3000', 'http://127.0.0.1:3000'],
-                production: ['https://backend-filo.vercel.app']
-            };
-            
-            const currentEnv = baseUrls[process.env.NODE_ENV] ? process.env.NODE_ENV : 'development'; 
-            const recoveryLink = `${baseUrls[currentEnv][0]}/reset-password?token=${token}`;
-            
-            return `
-              <div style="font-family: Arial, sans-serif; color: #333; background-color: #f9f9f9; padding: 20px; border-radius: 10px;">
-                <h2 style="color: #d9534f; font-weight: bold; font-size: 24px;">Recuperación de contraseña</h2>
+        const body = `
+            <div style="font-family: Arial, sans-serif; color: #333; background-color: #f9f9f9; padding: 20px; border-radius: 10px;">
+                <h2 style="color: #d9534f; font-weight: bold; font-size: 24px;">Código de recuperación de contraseña</h2>
                 <p style="font-size: 16px;">Hola ${destinatario},</p>
-                <p style="font-size: 16px;">Has solicitado restablecer tu contraseña. Haz clic en el enlace de abajo para proceder:</p>
-                <a href="${recoveryLink}" style="display: inline-block; background-color: #d9534f; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Restablecer contraseña</a>
-                <p style="font-size: 16px; margin-top: 20px;">Si no puedes hacer clic en el botón, copia y pega el siguiente enlace en tu navegador:</p>
-                <p style="font-size: 16px; word-break: break-all;">${recoveryLink}</p>
+                <p style="font-size: 16px;">Has solicitado recuperar tu contraseña. Introduce el siguiente código en la interfaz de recuperación de contraseña:</p>
+                <div style="font-size: 24px; font-weight: bold; letter-spacing: 8px; color: #d9534f; text-align: center; margin-top: 20px;">
+                    ${otp.split('').join(' ')}
+                </div>
+                <p style="font-size: 16px; margin-top: 20px;">Este código es válido solo por 15 minutos.</p>
                 <p style="font-weight: bold; font-size: 16px; margin-top: 20px;">Atentamente,</p>
                 <p style="font-weight: bold; font-size: 16px;">El equipo de soporte</p>
-              </div>
-            `;
-        };
+            </div>
+        `;
 
-        // Opciones del correo
         const mailOptions = {
-            from: process.env.EMAIL_FROM, // Remitente
-            to: destinatario, // Destinatario del correo
-            subject: 'Recuperación de contraseña', // Asunto del correo
-            html: body(destinatario, token) // Contenido HTML del correo
+            from: process.env.EMAIL_FROM, 
+            to: destinatario,
+            subject: 'Código de recuperación de contraseña',
+            html: body
         };
 
-        // Enviar el correo
         await transporter.sendMail(mailOptions);
-        console.log('Correo de recuperación enviado con éxito a', destinatario);
+        console.log('Correo con OTP enviado con éxito a', destinatario);
     } catch (error) {
-        console.error('Error al enviar el correo de recuperación:', error);
+        console.error('Error al enviar el correo con OTP:', error);
         throw new Error('Error al enviar el correo electrónico');
     }
 };

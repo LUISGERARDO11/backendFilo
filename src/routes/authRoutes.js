@@ -32,4 +32,13 @@ router.post('/logout', authMiddleware, authController.logout)
 // PUT /change-profile
 router.put('/change-password', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration,authController.changePassword);
 
+// Ruta para iniciar el proceso de recuperación de contraseña
+router.post('/initiate-password-recovery', authController.initiatePasswordRecovery);
+
+// Ruta para verificar el código OTP
+router.post('/verify-otp', authController.verifyOTP);
+
+// Ruta para reestablecer la contraseña
+router.post('/reset-password', authController.resetPassword);
+
 module.exports = router;

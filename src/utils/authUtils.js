@@ -4,6 +4,7 @@ of the last password change. */
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
+const crypto = require('crypto');
 
 // Función auxiliar para verificar el estado de la rotación de contraseñas
 exports.checkPasswordRotation = (fechaUltimoCambio) => {
@@ -67,6 +68,10 @@ exports.validateEmail =async(email) =>{
     }
 }
 
+exports.generateOTP = () => { 
+    return crypto.randomBytes(4).toString('hex').toUpperCase(); // 8 caracteres en hexadecimal
+};
+
 let passwordList = new Set();
 
 // Función para cargar la lista de contraseñas
@@ -84,12 +89,10 @@ const loadPasswordList = () => {
     });
 };
 
-// Función para verificar si una contraseña está comprometida
-const isPasswordCompromised = (password) => {
+// Verificar si una contraseña está comprometida
+exports.isPasswordCompromised = (password) => {
     return passwordList.has(password);
 };
 
-module.exports = {
-    loadPasswordList,
-    isPasswordCompromised
-};
+// Exportar la función para cargar la lista de contraseñas
+exports.loadPasswordList = loadPasswordList;

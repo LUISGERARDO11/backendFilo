@@ -9,11 +9,6 @@ const authUtils = require('../utils/authUtils');
 const crypto = require('crypto');
 const { body, validationResult } = require('express-validator');
 
-// Función para generar un token único
-const generateRecoveryToken = () => {
-    return crypto.randomBytes(32).toString('hex');
-};
-
 // Registro de usuarios
 exports.register = [
     // Validar y sanitizar entradas
@@ -223,8 +218,7 @@ exports.logout = async (req, res) => {
     }
 };
 
-//Los siguientes dos metodos son para cuando un usuario cambia su contraseña sabiendo la actual y colocando una nueva
-// Método para cambiar la contraseña del usuario autenticado
+// Método para cambiar la contraseña del usuario autenticado para cuando un usuario cambia su contraseña sabiendo la actual y colocando una nueva
 exports.changePassword = [
     // Validar y sanitizar entradas
     body('currentPassword').not().isEmpty().trim().escape(),
@@ -328,27 +322,141 @@ exports.initiatePasswordRecovery = async (req, res) => {
             return res.status(404).json({ message: 'Cuenta no encontrada.' });
         }
 
-        // Generar un token único y definir una caducidad de 15 minutos
-        const recoveryToken = generateRecoveryToken();
+        // Generar un OTP único
+        const otp = authUtils.generateOTP();
         const expiration = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
 
-        // Guardar el token y la fecha de expiración en el modelo Account
+        // Guardar el OTP y la fecha de expiración en el modelo Account
         account.recuperacion_contrasenia = {
-            codigo: recoveryToken,
+            codigo: otp,
             expiracion_codigo: expiration,
             codigo_valido: true
         };
         await account.save();
 
-        // Enviar el token al correo del usuario
-        const recoveryLink = `https://example.com/recover-password/${recoveryToken}`;
-        await sendRecoveryEmail(user.email, recoveryLink);
+        // Enviar el OTP al correo del usuario
+        await authService.sendOTPEmail(user.email, otp);
 
-        res.status(200).json({ message: 'Se ha enviado un enlace de recuperación a tu correo electrónico.' });
+        res.status(200).json({ message: 'Se ha enviado un código de recuperación a tu correo electrónico.' });
     } catch (error) {
         res.status(500).json({ message: 'Error al iniciar el proceso de recuperación de contraseña.', error: error.message });
     }
 };
+//metodo para verificar el codigo otp para recuperacion de contraseña
+exports.verifyOTP = async (req, res) => {
+    const { email, otp } = req.body;
+
+    try {
+        // Buscar al usuario por su correo
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ message: 'Usuario no encontrado.' });
+        }
+
+        // Buscar la cuenta del usuario asociada
+        const account = await Account.findOne({ user_id: user._id });
+        if (!account) {
+            return res.status(404).json({ message: 'Cuenta no encontrada.' });
+        }
+
+        // Verificar si el código OTP es válido
+        if (!account.recuperacion_contrasenia.codigo_valido) {
+            return res.status(400).json({ message: 'El código OTP no es válido. Solicita uno nuevo.' });
+        }
+
+        // Verificar si el OTP ha expirado
+        if (Date.now() > account.recuperacion_contrasenia.expiracion_codigo) {
+            return res.status(400).json({ message: 'El código OTP ha expirado. Solicita uno nuevo.' });
+        }
+
+        // Verificar si el OTP ingresado es correcto
+        if (otp !== account.recuperacion_contrasenia.codigo) {
+            // Incrementar el contador de intentos fallidos
+            account.recuperacion_contrasenia.intentos += 1;
+            await account.save();
+
+            // Si los intentos fallidos son 3 o más, invalidar el código OTP
+            if (account.recuperacion_contrasenia.intentos >= 3) {
+                account.recuperacion_contrasenia.codigo_valido = false;
+                await account.save();
+                return res.status(400).json({
+                    message: 'Has alcanzado el límite de intentos fallidos. Solicita un nuevo código OTP.'
+                });
+            }
+
+            return res.status(400).json({
+                message: `Código OTP incorrecto. Intentos restantes: ${3 - account.recuperacion_contrasenia.intentos}.`
+            });
+        }
+
+        // Si el OTP es correcto, proceder con la validación
+        account.recuperacion_contrasenia.codigo_valido = false; // Invalida el OTP después de su uso
+        account.recuperacion_contrasenia.intentos = 0; // Reiniciar intentos
+        await account.save();
+
+        return res.status(200).json({ 
+            message: 'OTP verificado correctamente. Puedes proceder a cambiar tu contraseña.',
+            status: 'success'
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Error al verificar el código OTP.', error: error.message });
+    }
+};
+//metodo para reestablecer una contraseña
+exports.resetPassword = [
+    // Validar y sanitizar entradas
+    body('email').isEmail().withMessage('Debe proporcionar un correo electrónico válido').normalizeEmail(),
+    body('newPassword').isLength({ min: 8 }).withMessage('La nueva contraseña debe tener al menos 8 caracteres').trim().escape(),
+
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        const { email, newPassword } = req.body;
+
+        try {
+            // Buscar al usuario por su correo
+            const user = await User.findOne({ email });
+            if (!user) {
+                return res.status(404).json({ message: 'Usuario no encontrado.' });
+            }
+
+            // Buscar la cuenta asociada al usuario
+            const account = await Account.findOne({ user_id: user._id });
+            if (!account) {
+                return res.status(404).json({ message: 'Cuenta no encontrada.' });
+            }
+
+            // Verificar si la nueva contraseña es diferente a las anteriores 
+            const result = await userService.trackPasswordHistory(account._id, account.contrasenia_hash, newPassword);
+            if (!result.success) {
+                return res.status(400).json({ message: result.message });
+            }
+
+            // Cifrar la nueva contraseña
+            const newHashedPassword = await authService.hashPassword(newPassword);
+            account.contrasenia_hash = newHashedPassword;
+            account.estado_contrasenia.fecha_ultimo_cambio = new Date();
+
+            // Guardar los cambios
+            await account.save();
+
+            // Revocar todas las sesiones activas del usuario después del cambio de contraseña
+            await Session.updateMany({ user_id: user._id, revocada: false }, { revocada: true });
+
+            // Enviar una notificación de cambio de contraseña al usuario
+            await authService.sendPasswordChangeNotification(user.email);
+
+            return res.status(200).json({ message: 'Contraseña actualizada exitosamente.' });
+        } catch (error) {
+            return res.status(500).json({ message: 'Error al cambiar la contraseña.', error: error.message });
+        }
+    }
+];
+
+
 
 // Verificar MFA (función auxiliar)
 const verifyMfaCode = (mfa_code, user) => {
