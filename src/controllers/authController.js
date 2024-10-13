@@ -81,13 +81,48 @@ exports.register = [
         }
     }
 ];
+// Verificar el correo electrónico del usuario
+exports.verifyEmailVersion2 = async (req, res) => {
+    const { token } = req.query;
 
+    try {
+        // Buscar al usuario con el token de verificación
+        const user = await User.findOne({
+            verificacionCorreoToken: token,
+            verificacionCorreoExpira: { $gt: Date.now() } // Verificar que el token no ha expirado
+        });
+
+        if (!user) {
+            return res.status(400).json({ message: 'Token inválido o expirado.' });
+        }
+
+        // Activar la cuenta del usuario
+        user.estado = 'activo';
+        user.verificacionCorreoToken = undefined; // Limpiar el token
+        user.verificacionCorreoExpira = undefined;
+        await user.save();
+
+         // Redirigir al usuario a la página de inicio de sesión del frontend
+         const baseUrls = {
+            development: [ 'http://localhost:3000', 'http://localhost:4200', 'http://127.0.0.1:4200', 'http://127.0.0.1:3000'],
+            production: ['https://frontend-filo.vercel.app']
+        };
+
+        const currentEnv = baseUrls[process.env.NODE_ENV] ? process.env.NODE_ENV : 'development';
+        const loginUrl = `${baseUrls[currentEnv][0]}/`;
+
+        res.redirect(loginUrl);
+
+    } catch (error) {
+        res.status(500).json({ message: 'Error al verificar el correo', error: error.message });
+    }
+};
 // Inicio de sesión
 exports.login = [
     // Validar y sanitizar entradas
     body('email').isEmail().normalizeEmail(),
     body('password').not().isEmpty().trim().escape(),
-    body('recaptchaToken').not().isEmpty().withMessage('Se requiere el token de reCAPTCHA'),
+    //body('recaptchaToken').not().isEmpty().withMessage('Se requiere el token de reCAPTCHA'),
 
     async (req, res) => {
         const errors = validationResult(req);
@@ -95,22 +130,22 @@ exports.login = [
             return res.status(400).json({ errors: errors.array() });
         }
 
-        const { email, password, mfa_code,recaptchaToken } = req.body;
+        const { email, password,recaptchaToken } = req.body;
 
         try {
             // 1. Verificar el token de reCAPTCHA con la API de Google
-            const recaptchaSecretKey = process.env.RECAPTCHA_SECRET_KEY;
-            const recaptchaResponse = await axios.post(`https://www.google.com/recaptcha/api/siteverify`, null, {
-                params: {
-                    secret: recaptchaSecretKey,
-                    response: recaptchaToken
-                }
-            });
+            //const recaptchaSecretKey = process.env.RECAPTCHA_SECRET_KEY;
+            //const recaptchaResponse = await axios.post(`https://www.google.com/recaptcha/api/siteverify`, null, {
+               // params: {
+                    //secret: recaptchaSecretKey,
+                    //response: recaptchaToken
+                //}
+            //});
 
-            const { success, score } = recaptchaResponse.data;
-            if (!success || score < 0.5) {
-                return res.status(400).json({ message: 'Fallo en la verificación de reCAPTCHA' });
-            }
+            //const { success, score } = recaptchaResponse.data;
+            //if (!success || score < 0.5) {
+                //return res.status(400).json({ message: 'Fallo en la verificación de reCAPTCHA' });
+            //}
             
             // Buscar al usuario y su cuenta vinculada
             const user = await User.findOne({ email });
@@ -154,18 +189,16 @@ exports.login = [
             }
             
 
-            // Verificar MFA si está habilitado
+            // Si MFA está habilitado, no autenticamos completamente aún
             if (account.configuracion_2fa.enabled) {
-                if (!mfa_code) {
-                    return res.status(400).json({ message: 'Se requiere un código MFA' });
-                }
-                const isMfaValid = verifyMfaCode(mfa_code, user);
-                if (!isMfaValid) {
-                    return res.status(400).json({ message: 'Código MFA incorrecto' });
-                }
+                return res.status(200).json({
+                    message: 'MFA requerido. Introduce tu código MFA.',
+                    mfaRequired: true,
+                    userId: user._id // Enviar el userId para que el frontend lo use en la solicitud MFA
+                });
             }
 
-            // Generar el JWT utilizando el servicio
+            //Si MFA no está habilitado, Generar el JWT utilizando el servicio
             const token = authService.generateJWT(user);
 
             // Guardar la sesión
@@ -196,6 +229,117 @@ exports.login = [
         }
     }
 ];
+// Inicia el proceso para autenticacion en dos pasos
+exports.sendOtpMfa = async (req, res) => {
+    const { userId } = req.body;
+
+    try {
+         // Buscar la cuenta del usuario por userId
+         const account = await Account.findOne({ user_id: userId });
+         if (!account) {
+             return res.status(404).json({ message: 'Cuenta no encontrada.' });
+         }
+ 
+         // Buscar el usuario por su ID para obtener el correo electrónico
+         const user = await User.findById(userId);
+         if (!user) {
+             return res.status(404).json({ message: 'Usuario no encontrado.' });
+         }
+ 
+         // Generar OTP y definir una expiración de 15 minutos
+         const otp = authUtils.generateOTP();
+         const expiration = new Date(Date.now() + 15 * 60 * 1000);
+ 
+         // Almacenar el OTP y la expiración en la base de datos
+         account.configuracion_2fa = {
+             mfa_tipo: 'OTP', 
+             enabled: true,
+             codigo: otp,
+             expiracion_codigo: expiration,
+             codigo_valido: true,
+             intentos: 0 // Reiniciar intentos
+         };
+         await account.save();
+ 
+         // Enviar el OTP por correo electrónico al usuario
+         await authService.sendMFAOTPEmail(user.email, otp); 
+
+        res.status(200).json({ success: true, message: 'OTP enviado correctamente.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error al enviar el OTP.', error: error.message });
+    }
+};
+//Verificar el codigo mfa 
+exports.verifyOTPMFA = async (req, res) => {
+    const { userId, otp } = req.body;
+
+    try {
+        // Buscar la cuenta del usuario
+        const account = await Account.findOne({ user_id: userId });
+        if (!account) {
+            return res.status(404).json({ message: 'Cuenta no encontrada.' });
+        }
+
+        // Verificar si el OTP es válido y no ha expirado
+        if (!account.configuracion_2fa.codigo_valido || Date.now() > account.configuracion_2fa.expiracion_codigo) {
+            return res.status(400).json({ message: 'El código OTP ha expirado o es inválido.' });
+        }
+
+        // Verificar si el OTP es correcto
+        if (otp !== account.configuracion_2fa.codigo) {
+            account.configuracion_2fa.intentos += 1;
+            if (account.configuracion_2fa.intentos >= 3) {
+                account.configuracion_2fa.codigo_valido = false; // Invalida el OTP después de 3 intentos fallidos
+            }
+            await account.save();
+            return res.status(400).json({ message: `OTP incorrecto. Intentos restantes: ${3 - account.configuracion_2fa.intentos}.` });
+        }
+
+        // Si el OTP es correcto, proceder
+        account.configuracion_2fa.codigo_valido = false; // Invalida el OTP después de ser usado
+        await account.save();
+
+        // Buscar el usuario para obtener información adicional
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'Usuario no encontrado.' });
+        }
+
+        // Generar el JWT utilizando el servicio
+        const token = authService.generateJWT(user);
+
+        // Guardar la sesión
+        const newSession = new Session({
+            user_id: user._id,
+            token,
+            fecha_creacion: new Date(),
+            ultima_actividad: new Date(),
+            expiracion: new Date(Date.now() + 3600000), // 1 hora
+            ip: req.ip,
+            navegador: req.headers['user-agent'],
+            revocada: false
+        });
+
+        await newSession.save();
+
+        // Establecer la cookie con el token
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Strict',
+            maxAge: 3600000 // 1 hora
+        });
+
+        // Enviar respuesta exitosa y el token
+        res.status(200).json({ 
+            success: true, 
+            message: 'OTP verificado correctamente. Inicio de sesión exitoso.' 
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: 'Error al verificar el OTP.', error: error.message });
+    }
+};
 
 // Cerrar sesión del usuario (elimina el token de la sesión actual)
 exports.logout = async (req, res) => {
@@ -279,44 +423,7 @@ exports.changePassword = [
     }
 ];
 
-// Verificar el correo electrónico del usuario
-exports.verifyEmailVersion2 = async (req, res) => {
-    const { token } = req.query;
-
-    try {
-        // Buscar al usuario con el token de verificación
-        const user = await User.findOne({
-            verificacionCorreoToken: token,
-            verificacionCorreoExpira: { $gt: Date.now() } // Verificar que el token no ha expirado
-        });
-
-        if (!user) {
-            return res.status(400).json({ message: 'Token inválido o expirado.' });
-        }
-
-        // Activar la cuenta del usuario
-        user.estado = 'activo';
-        user.verificacionCorreoToken = undefined; // Limpiar el token
-        user.verificacionCorreoExpira = undefined;
-        await user.save();
-
-         // Redirigir al usuario a la página de inicio de sesión del frontend
-         const baseUrls = {
-            development: [ 'http://localhost:3000', 'http://localhost:4200', 'http://127.0.0.1:4200', 'http://127.0.0.1:3000'],
-            production: ['https://frontend-filo.vercel.app']
-        };
-
-        const currentEnv = baseUrls[process.env.NODE_ENV] ? process.env.NODE_ENV : 'development';
-        const loginUrl = `${baseUrls[currentEnv][0]}/`;
-
-        res.redirect(loginUrl);
-
-    } catch (error) {
-        res.status(500).json({ message: 'Error al verificar el correo', error: error.message });
-    }
-};
-
-//Los siguientes dos métodos son para cuando un usuario reestablece su contraseña por que se le ha olvidado
+//Los siguientes tres métodos son para cuando un usuario reestablece su contraseña por que se le ha olvidado
 // Método para iniciar el proceso de recuperación de contraseña
 exports.initiatePasswordRecovery = async (req, res) => {
     const { email } = req.body;
@@ -466,15 +573,6 @@ exports.resetPassword = [
     }
 ];
 
-
-
-// Verificar MFA (función auxiliar)
-const verifyMfaCode = (mfa_code, user) => {
-    // Aquí puedes implementar la lógica para verificar códigos TOTP o SMS
-    // Por ejemplo, con una biblioteca como speakeasy para TOTP
-    // return speakeasy.totp.verify({...});
-    return true; // Simulación, por ahora devuelve true
-};
 
 // Revocar tokens anteriores si se detecta actividad sospechosa o múltiples intentos fallidos
 exports.revokeTokens = async (user_id) => {

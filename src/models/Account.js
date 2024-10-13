@@ -18,8 +18,12 @@ const AccountSchema = new mongoose.Schema({
     /* The `configuracion_2fa` field in the `Account` schema is defining a sub-document with two
     properties: `mfa_tipo` and `enabled`. */
     configuracion_2fa: {
-        mfa_tipo: { type: String, enum: ['TOTP', 'SMS'], default: 'TOTP' },
-        enabled: { type: Boolean, default: false }
+        mfa_tipo: { type: String, enum: ['OTP', 'SMS'], default: 'OTP' },
+        enabled: { type: Boolean, default: false },
+        codigo: { type: String }, // Código de verificación generado para MFA (puede ser para SMS o TOTP)
+        expiracion_codigo: { type: Date }, // Fecha de expiración del código
+        intentos: { type: Number, default: 0 }, // Intentos fallidos al introducir el código
+        codigo_valido: { type: Boolean, default: false } // Si el código sigue siendo válido
     },
     /* The `estado_contrasenia` field in the `Account` schema is defining a sub-document that contains
     information related to the password state of the account. Here's a breakdown of what each

@@ -184,6 +184,37 @@ exports.sendVerificationEmailVersion2 = async (destinatario, token) => {
     throw new Error("Error al enviar el correo electrónico");
   }
 };
+// Servicio para enviar un código OTP a un usuario para autenticación MFA
+exports.sendMFAOTPEmail = async (destinatario, otp) => {
+  try {
+    const body = `
+      <div style="font-family: Arial, sans-serif; color: #333; background-color: #f9f9f9; padding: 20px; border-radius: 10px;">
+        <h2 style="color: #043464; font-weight: bold; font-size: 24px;">Código de Autenticación MFA</h2>
+        <p style="font-size: 16px;">Hola ${destinatario},</p>
+        <p style="font-size: 16px;">Has solicitado iniciar sesión utilizando autenticación multifactor. Introduce el siguiente código en la interfaz de autenticación:</p>
+        <div style="font-size: 24px; font-weight: bold; letter-spacing: 8px; color: #043464; text-align: center; margin-top: 20px;">
+          ${otp.split("").join(" ")}
+        </div>
+        <p style="font-size: 16px; margin-top: 20px;">Este código es válido solo por 15 minutos.</p>
+        <p style="font-weight: bold; font-size: 16px; margin-top: 20px;">Atentamente,</p>
+        <p style="font-weight: bold; font-size: 16px;">El equipo de soporte</p>
+      </div>
+    `;
+
+    const mailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: destinatario,
+      subject: "Código de Autenticación MFA",
+      html: body,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log("Correo con OTP para MFA enviado con éxito a", destinatario);
+  } catch (error) {
+    console.error("Error al enviar el correo con OTP para MFA:", error);
+    throw new Error("Error al enviar el correo electrónico");
+  }
+};
 //Servicio para enviar un codigo OTP a un usuario para recuperacion de contraseña
 exports.sendOTPEmail = async (destinatario, otp) => {
   try {
