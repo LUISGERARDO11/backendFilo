@@ -17,8 +17,8 @@ router.post('/check-password', authController.checkPassword);
 router.post('/register', authLimiter, authController.register);
 
 // Ruta para registrar que un usuario verifique su cuenta/email
-// POST /verify-email
-router.post('/verify-email', authController.verifyEmail);
+// GET /verify-email
+router.get('/verify-email', authController.verifyEmailVersion2);
 
 // Ruta para iniciar sesión y obtener un JWT
 // POST /login

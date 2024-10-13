@@ -84,7 +84,7 @@ exports.register = [
             savedUser.verificacionCorreoExpira = Date.now() + 24 * 60 * 60 * 1000; // Expira en 24 horas
             await savedUser.save();
 
-            await authService.sendVerificationEmail(savedUser.email, verificationToken);
+            await authService.sendVerificationEmailVersion2(savedUser.email, verificationToken);
             res.status(201).json({ message: 'Usuario registrado exitosamente', user: savedUser });
         } catch (error) {
             res.status(500).json({ message: 'Error en el registro de usuario', error: error.message });
@@ -276,7 +276,7 @@ exports.changePassword = [
 ];
 
 // Verificar el correo electrónico del usuario
-exports.verifyEmail = async (req, res) => {
+exports.verifyEmailVersion2 = async (req, res) => {
     const { token } = req.query;
 
     try {
@@ -296,7 +296,17 @@ exports.verifyEmail = async (req, res) => {
         user.verificacionCorreoExpira = undefined;
         await user.save();
 
-        res.status(200).json({ message: 'Correo verificado exitosamente. Ahora puedes iniciar sesión.' });
+         // Redirigir al usuario a la página de inicio de sesión del frontend
+         const baseUrls = {
+            development: [ 'http://localhost:3000', 'http://localhost:4200', 'http://127.0.0.1:4200', 'http://127.0.0.1:3000'],
+            production: ['https://frontend-filo.vercel.app']
+        };
+
+        const currentEnv = baseUrls[process.env.NODE_ENV] ? process.env.NODE_ENV : 'development';
+        const loginUrl = `${baseUrls[currentEnv][0]}/`;
+
+        res.redirect(loginUrl);
+
     } catch (error) {
         res.status(500).json({ message: 'Error al verificar el correo', error: error.message });
     }

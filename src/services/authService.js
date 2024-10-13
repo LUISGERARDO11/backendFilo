@@ -141,7 +141,6 @@ const transporter = nodemailer.createTransport({
     }
   })
   
-
   // Servicio para enviar el correo de notificación de cambio de contraseña
  exports.sendPasswordChangeNotification = async (destinatario) => {
     try {
@@ -173,20 +172,18 @@ const transporter = nodemailer.createTransport({
       throw new Error('Error al enviar el correo electrónico');
     }
   }
-  // Servicio para enviar el correo de notificación de cambio de contraseña
-  exports.sendVerificationEmail = async (destinatario, token) => {
+
+exports.sendVerificationEmailVersion2 = async (destinatario, token) => {
     try {
-     
-      // Cuerpo del correo electrónico
       const body = (destinatario, token) => {
         const baseUrls = {
-          development: ['http://localhost:4200', 'http://127.0.0.1:4200', 'http://localhost:3000', 'http://127.0.0.1:3000'],
-          production: [ 'https://backend-filo.vercel.app']
+          development: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+          production: ['https://backend-filo.vercel.app']
         };
-  
-        const currentEnv = baseUrls[process.env.NODE_ENV] ? process.env.NODE_ENV : 'development'; 
-        const verificationLink = `${baseUrls[currentEnv][0]}/verify-email?token=${token}`;
-  
+
+        const currentEnv = baseUrls[process.env.NODE_ENV] ? process.env.NODE_ENV : 'development';
+        const verificationLink = `${baseUrls[currentEnv][0]}/auth/verify-email?token=${token}`; // Cambiado a redirigir al backend
+
         return `
           <div style="font-family: Arial, sans-serif; color: #333; background-color: #f9f9f9; padding: 20px; border-radius: 10px;">
             <h2 style="color: #043464; font-weight: bold; font-size: 24px;">Verificación de correo electrónico</h2>
@@ -200,24 +197,21 @@ const transporter = nodemailer.createTransport({
           </div>
         `;
       };
-  
-      // Opciones del correo
+
       const mailOptions = {
-        from: process.env.EMAIL_FROM, // Correo del remitente configurado en .env
-        to: destinatario, // Destinatario del correo
-        subject: 'Verificación de correo', // Asunto del correo
-        html: body(destinatario, token) // Contenido HTML del correo ejecutando la función
+        from: process.env.EMAIL_FROM,
+        to: destinatario,
+        subject: 'Verificación de correo',
+        html: body(destinatario, token)
       };
-  
-      // Enviar el correo
+
       await transporter.sendMail(mailOptions);
       console.log('Verificación de correo enviado con éxito a', destinatario);
     } catch (error) {
       console.error('Error al enviar el correo de verificación:', error);
       throw new Error('Error al enviar el correo electrónico');
     }
-  };
-
+};
 
   exports.sendRecoveryEmail = async (destinatario, token) => {
     try {
@@ -261,34 +255,6 @@ const transporter = nodemailer.createTransport({
         throw new Error('Error al enviar el correo electrónico');
     }
 };
-
-  // Verificar el correo electrónico del usuario
-exports.verifyEmail = async (req, res) => {
-    const { token } = req.query;
-
-    try {
-        // Buscar al usuario con el token de verificación
-        const user = await User.findOne({
-            verificacionCorreoToken: token,
-            verificacionCorreoExpira: { $gt: Date.now() } // Verificar que el token no ha expirado
-        });
-
-        if (!user) {
-            return res.status(400).json({ message: 'Token inválido o expirado.' });
-        }
-
-        // Activar la cuenta del usuario
-        user.estado = 'activo';
-        user.verificacionCorreoToken = undefined; // Limpiar el token
-        user.verificacionCorreoExpira = undefined;
-        await user.save();
-
-        res.status(200).json({ message: 'Correo verificado exitosamente. Ahora puedes iniciar sesión.' });
-    } catch (error) {
-        res.status(500).json({ message: 'Error al verificar el correo', error: error.message });
-    }
-};
-
 
   // Método para verificar si el usuario está bloqueado
 exports.isUserBlocked = async (userId) => {
