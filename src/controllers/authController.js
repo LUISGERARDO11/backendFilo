@@ -17,7 +17,6 @@ exports.register = [
     body('telefono').isString().trim().escape(),
     body('password').isLength({ min: 8 }).withMessage('La contraseña debe tener al menos 8 caracteres').trim().escape(),
     body('tipo_usuario').isIn(['cliente', 'administrador']).withMessage('Tipo de usuario no válido'),
-    body('mfa_activado').isBoolean(),
 
     async (req, res) => {
         const errors = validationResult(req);
@@ -25,7 +24,7 @@ exports.register = [
             return res.status(400).json({ errors: errors.array() });
         }
 
-        const { nombre, email, telefono, password, tipo_usuario, mfa_activado } = req.body;
+        const { nombre, email, telefono, password, tipo_usuario } = req.body;
 
         try {
             // Validar si el correo es real usando ZeroBounce (esto ya está implementado)
@@ -46,7 +45,6 @@ exports.register = [
                 email,
                 telefono,
                 tipo_usuario,
-                mfa_activado,
                 estado: 'pendiente'
             });
 
@@ -62,10 +60,6 @@ exports.register = [
                     requiere_cambio: false,
                     fecha_ultimo_cambio: new Date(),
                     contrasenia_temporal: false
-                },
-                configuracion_2fa: {
-                    mfa_tipo: mfa_activado ? 'TOTP' : null, // Dependiendo si MFA está activado
-                    enabled: mfa_activado
                 }
             });
 
