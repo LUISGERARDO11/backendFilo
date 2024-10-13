@@ -20,44 +20,47 @@
  * error encountered:
  */
 const errorHandler = (err, req, res, next) => {
-    console.error(err); // Imprime el error en la consola para depuración
+  console.error(err); // Imprime el error en la consola para depuración
 
-    // Manejo de errores de validación de Mongoose
-    if (err.name === 'ValidationError') {
-        return res.status(400).json({
-            message: 'Error de validación',
-            errors: Object.values(err.errors).map(e => ({ field: e.path, message: e.message }))
-        });
-    }
-
-    // Manejo de error de duplicado en MongoDB (clave única duplicada)
-    if (err.code === 11000) {
-        return res.status(409).json({
-            message: 'El recurso ya existe',
-            error: err.keyValue // Información sobre el campo duplicado (por ejemplo, email o username)
-        });
-    }
-
-    // Manejo de error de autorización (token inválido o no enviado)
-    if (err.name === 'UnauthorizedError') {
-        return res.status(401).json({ message: 'No autorizado' });
-    }
-
-    // Manejo de error de acceso prohibido (falta de permisos)
-    if (err.name === 'ForbiddenError') {
-        return res.status(403).json({ message: 'Acceso prohibido' });
-    }
-
-    // Manejo de error de recurso no encontrado
-    if (err.name === 'NotFoundError') {
-        return res.status(404).json({ message: 'Recurso no encontrado' });
-    }
-
-    // Error por defecto (500 Internal Server Error)
-    res.status(500).json({
-        message: 'Error interno del servidor',
-        ...(process.env.NODE_ENV === 'development' && { error: err.message }) // Muestra detalles en modo desarrollo
+  // Manejo de errores de validación de Mongoose
+  if (err.name === "ValidationError") {
+    return res.status(400).json({
+      message: "Error de validación",
+      errors: Object.values(err.errors).map((e) => ({
+        field: e.path,
+        message: e.message,
+      })),
     });
+  }
+
+  // Manejo de error de duplicado en MongoDB (clave única duplicada)
+  if (err.code === 11000) {
+    return res.status(409).json({
+      message: "El recurso ya existe",
+      error: err.keyValue, // Información sobre el campo duplicado (por ejemplo, email o username)
+    });
+  }
+
+  // Manejo de error de autorización (token inválido o no enviado)
+  if (err.name === "UnauthorizedError") {
+    return res.status(401).json({ message: "No autorizado" });
+  }
+
+  // Manejo de error de acceso prohibido (falta de permisos)
+  if (err.name === "ForbiddenError") {
+    return res.status(403).json({ message: "Acceso prohibido" });
+  }
+
+  // Manejo de error de recurso no encontrado
+  if (err.name === "NotFoundError") {
+    return res.status(404).json({ message: "Recurso no encontrado" });
+  }
+
+  // Error por defecto (500 Internal Server Error)
+  res.status(500).json({
+    message: "Error interno del servidor",
+    ...(process.env.NODE_ENV === "development" && { error: err.message }), // Muestra detalles en modo desarrollo
+  });
 };
 
 module.exports = errorHandler;

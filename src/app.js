@@ -1,9 +1,12 @@
-/* This code snippet is setting up a Node.js Express application. Here's a breakdown of what it does: */
+/* This code snippet is setting up a Node.js Express application. Here's a breakdown of what it's
+doing: */
 const express = require('express');
+const cookieParser = require('cookie-parser');
 const corsConfig = require('./config/corsConfig'); 
+// Importar los middlewares
 const errorHandler = require('./middlewares/errorHandler');
 const { generalLimiter } = require('./middlewares/expressRateLimit');
-const cookieParser = require('cookie-parser');
+//Importar utilidades
 const authUtils = require('./utils/authUtils');
 // Importar las rutas
 const authRoutes = require('./routes/authRoutes');
@@ -32,7 +35,6 @@ app.get('/', (req, res) => {
 // Cargar la lista de contraseñas filtradas al iniciar la aplicación
 authUtils.loadPasswordList();
 
-
 // Rutas de autenticación y usuarios
 app.use('/auth', authRoutes); // Rutas de autenticación (registro, login)
 app.use('/users', userRoutes); // Rutas de usuarios autenticados (perfil)
@@ -42,4 +44,3 @@ app.use('/admin', adminRoutes);
 app.use(errorHandler);
 
 module.exports = app;
-

@@ -4,7 +4,9 @@ the '../controllers/authController' file. */
 
 const express = require('express');
 const router = express.Router();
+//Importar controladores
 const authController = require('../controllers/authController');
+//Importar middlewares
 const authMiddleware = require('../middlewares/authMiddleware');
 const { authLimiter } = require('../middlewares/expressRateLimit');
 const tokenExpirationMiddleware = require('../middlewares/verifyTokenExpiration');
@@ -13,23 +15,18 @@ const tokenExpirationMiddleware = require('../middlewares/verifyTokenExpiration'
 router.post('/check-password', authController.checkPassword);
 
 // Ruta para registrar un nuevo usuario
-// POST /register
 router.post('/register', authLimiter, authController.register);
 
 // Ruta para registrar que un usuario verifique su cuenta/email
-// GET /verify-email
 router.get('/verify-email', authController.verifyEmailVersion2);
 
 // Ruta para iniciar sesión y obtener un JWT
-// POST /login
 router.post('/login', authController.login);
 
 // Ruta para cerrar sesión 
-// POST /logout
 router.post('/logout', authMiddleware, authController.logout)
 
 // Ruta para actualizar la contraseña del usuario autenticado
-// PUT /change-profile
 router.put('/change-password', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration,authController.changePassword);
 
 // Ruta para iniciar el proceso de recuperación de contraseña
