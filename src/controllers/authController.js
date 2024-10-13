@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const { body, validationResult } = require('express-validator');
 const axios = require('axios');
 
+//** GESTION DE USUARIOS  **
 // Registro de usuarios
 exports.register = [
     // Validar y sanitizar entradas
@@ -229,6 +230,38 @@ exports.login = [
         }
     }
 ];
+// Cerrar sesión del usuario (elimina el token de la sesión actual)
+exports.logout = async (req, res) => {
+    const token = req.cookies.token; // Obtener el token de la cookie
+    const userId = req.user.user_id; // ID del usuario autenticado
+
+    try {
+        // Buscar la sesión correspondiente al token actual
+        const session = await Session.findOne({ user_id: userId, token });
+        
+        if (!session) {
+            return res.status(404).json({ message: 'Sesión no encontrada.' });
+        }
+
+        // Marcar la sesión como revocada
+        session.revocada = true;
+        await session.save();
+
+        // Limpiar la cookie del token para cerrar la sesión del usuario
+        res.clearCookie('token', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Strict'
+        });
+
+        // Responder con un mensaje de éxito
+        res.status(200).json({ message: 'Sesión cerrada exitosamente.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error al cerrar sesión', error: error.message });
+    }
+};
+
+//** SEGURIDAD Y AUTENTICACIÓN MULTIFACTOR **
 // Inicia el proceso para autenticacion en dos pasos
 exports.sendOtpMfa = async (req, res) => {
     const { userId } = req.body;
@@ -341,38 +374,9 @@ exports.verifyOTPMFA = async (req, res) => {
     }
 };
 
-// Cerrar sesión del usuario (elimina el token de la sesión actual)
-exports.logout = async (req, res) => {
-    const token = req.cookies.token; // Obtener el token de la cookie
-    const userId = req.user.user_id; // ID del usuario autenticado
-
-    try {
-        // Buscar la sesión correspondiente al token actual
-        const session = await Session.findOne({ user_id: userId, token });
-        
-        if (!session) {
-            return res.status(404).json({ message: 'Sesión no encontrada.' });
-        }
-
-        // Marcar la sesión como revocada
-        session.revocada = true;
-        await session.save();
-
-        // Limpiar la cookie del token para cerrar la sesión del usuario
-        res.clearCookie('token', {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'Strict'
-        });
-
-        // Responder con un mensaje de éxito
-        res.status(200).json({ message: 'Sesión cerrada exitosamente.' });
-    } catch (error) {
-        res.status(500).json({ message: 'Error al cerrar sesión', error: error.message });
-    }
-};
-
-// Método para cambiar la contraseña del usuario autenticado para cuando un usuario cambia su contraseña sabiendo la actual y colocando una nueva
+//** GESTION DE CONTRASEÑAS **
+// 1: CAMBIAR CONTRASEÑA: 
+//Método para cambiar la contraseña del usuario autenticado para cuando un usuario cambia su contraseña sabiendo la actual y colocando una nueva
 exports.changePassword = [
     // Validar y sanitizar entradas
     body('currentPassword').not().isEmpty().trim().escape(),
@@ -422,8 +426,7 @@ exports.changePassword = [
         }
     }
 ];
-
-//Los siguientes tres métodos son para cuando un usuario reestablece su contraseña por que se le ha olvidado
+//2:RECUPERACIÓN DE CONTRASEÑA
 // Método para iniciar el proceso de recuperación de contraseña
 exports.initiatePasswordRecovery = async (req, res) => {
     const { email } = req.body;
@@ -572,17 +575,7 @@ exports.resetPassword = [
         }
     }
 ];
-
-
-// Revocar tokens anteriores si se detecta actividad sospechosa o múltiples intentos fallidos
-exports.revokeTokens = async (user_id) => {
-    try {
-        await Session.updateMany({ user_id, revocada: false }, { revocada: true });
-    } catch (error) {
-        console.error('Error revocando sesiones anteriores:', error);
-    }
-};
-
+//3: VERIFICAR SI LA CONTRASEÑA ESTÁ COMPROMETIDA
 // Controlador para verificar si una contraseña está comprometida
 exports.checkPassword = (req, res) => {
     const { password } = req.body;
@@ -603,5 +596,15 @@ exports.checkPassword = (req, res) => {
             status: 'safe', 
             message: 'La contraseña no se encuentra en la lista de contraseñas filtradas.' 
         });
+    }
+};
+
+//** GESTION DE SESIONES **
+// Revocar tokens anteriores si se detecta actividad sospechosa o múltiples intentos fallidos
+exports.revokeTokens = async (user_id) => {
+    try {
+        await Session.updateMany({ user_id, revocada: false }, { revocada: true });
+    } catch (error) {
+        console.error('Error revocando sesiones anteriores:', error);
     }
 };

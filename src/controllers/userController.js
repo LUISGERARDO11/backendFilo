@@ -8,7 +8,7 @@ const FailedAttempt = require('../models/FailedAttempt');
 const Session = require('../models/Session');
 const { body, validationResult } = require('express-validator');
 
-
+//** GESTION DE PERFIL DE USUARIOS  **
 // Actualización del perfil del usuario (nombre, dirección, teléfono)
 exports.updateProfile = [
     // Validar y sanitizar entradas
@@ -90,7 +90,6 @@ exports.updateUserProfile = [
         }
     }
 ];
-
 // Función para obtener el perfil del usuario autenticado
 exports.getProfile = async (req, res) => {
     const userId = req.user.user_id; // Asumiendo que `authMiddleware` agrega `req.user`
@@ -105,6 +104,8 @@ exports.getProfile = async (req, res) => {
         res.status(500).json({ message: 'Error al obtener el perfil', error: error.message });
     }
 };
+
+//** ELIMINCACIÓN DE CUENTAS  **
 // Eliminar la cuenta del cliente autenticado
 exports.deleteMyAccount = async (req, res) => {
     const userId = req.user.user_id; // ID del usuario autenticado
@@ -142,9 +143,44 @@ exports.deleteMyAccount = async (req, res) => {
         res.status(500).json({ message: 'Error al eliminar tu cuenta', error: error.message });
     }
 };
+// Eliminar todo lo relacionado con un usuario de tipo cliente (solo para administradores)
+exports.deleteCustomerAccount = [
+    // Validar y sanitizar entradas
+    body('id').isMongoId().withMessage('ID de usuario no válido.'),
 
-//ONLY ADMINS CAN:
+    async (req, res) => {
+        const userId = req.params.id;
 
+        // Validar entradas
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        try {
+            const user = await User.findById(userId);
+            if (!user) {
+                return res.status(404).json({ message: 'Usuario no encontrado' });
+            }
+
+            if (user.tipo_usuario !== 'cliente') {
+                return res.status(403).json({ message: 'Solo los usuarios de tipo cliente pueden ser eliminados.' });
+            }
+
+            await User.findByIdAndDelete(userId);
+            await Account.findOneAndDelete({ user_id: userId });
+            await PassHistory.deleteMany({ account_id: userId });
+            await FailedAttempt.deleteMany({ user_id: userId });
+            await Session.deleteMany({ user_id: userId });
+
+            res.status(200).json({ message: 'Cuenta de cliente eliminada exitosamente junto con todos los registros relacionados.' });
+        } catch (error) {
+            res.status(500).json({ message: 'Error al eliminar la cuenta de cliente', error: error.message });
+        }
+    }
+];
+
+//** ADMINISTRACIÓN DE USUARIOS (SOLO PARA ADMINISTRADORES)  **
 // Obtener todos los usuarios con la sesión más reciente (solo accesible por administradores)
 exports.getAllUsersWithSessions = async (req, res) => {
     try {
@@ -232,43 +268,6 @@ exports.deactivateAccount = [
             res.status(200).json({ message: `Cuenta ${accion} exitosamente`, user });
         } catch (error) {
             res.status(500).json({ message: `Error al ${accion} la cuenta del usuario`, error: error.message });
-        }
-    }
-];
-
-// Eliminar todo lo relacionado con un usuario de tipo cliente (solo para administradores)
-exports.deleteCustomerAccount = [
-    // Validar y sanitizar entradas
-    body('id').isMongoId().withMessage('ID de usuario no válido.'),
-
-    async (req, res) => {
-        const userId = req.params.id;
-
-        // Validar entradas
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return res.status(400).json({ errors: errors.array() });
-        }
-
-        try {
-            const user = await User.findById(userId);
-            if (!user) {
-                return res.status(404).json({ message: 'Usuario no encontrado' });
-            }
-
-            if (user.tipo_usuario !== 'cliente') {
-                return res.status(403).json({ message: 'Solo los usuarios de tipo cliente pueden ser eliminados.' });
-            }
-
-            await User.findByIdAndDelete(userId);
-            await Account.findOneAndDelete({ user_id: userId });
-            await PassHistory.deleteMany({ account_id: userId });
-            await FailedAttempt.deleteMany({ user_id: userId });
-            await Session.deleteMany({ user_id: userId });
-
-            res.status(200).json({ message: 'Cuenta de cliente eliminada exitosamente junto con todos los registros relacionados.' });
-        } catch (error) {
-            res.status(500).json({ message: 'Error al eliminar la cuenta de cliente', error: error.message });
         }
     }
 ];
