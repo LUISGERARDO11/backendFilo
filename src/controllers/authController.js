@@ -29,12 +29,6 @@ exports.register = [
         const { nombre, email, telefono, password, tipo_usuario } = req.body;
 
         try {
-            // Validar si el correo es real usando ZeroBounce (esto ya está implementado)
-            //const emailValidation = await authUtils.validateEmail(email);
-            //if (!emailValidation.isValid) {
-              //  return res.status(400).json({ message: emailValidation.message });
-            //}
-
             // Validar si el usuario ya existe
             let existingUser = await User.findOne({ email });
             if (existingUser) {
@@ -52,12 +46,13 @@ exports.register = [
 
             const savedUser = await newUser.save();
             // Cifrar la contraseña utilizando el servicio
-            const hashedPassword = await authService.hashPassword(password);
+            //const hashedPassword = await authService.hashPassword(password);
 
             // Crear una cuenta vinculada al usuario
             const newAccount = new Account({
                 user_id: savedUser._id,
-                contrasenia_hash: hashedPassword,
+                contrasenia_hash: password,
+                //contrasenia_hash: hashedPassword,
                 estado_contrasenia: {
                     requiere_cambio: false,
                     fecha_ultimo_cambio: new Date(),
@@ -168,7 +163,9 @@ exports.login = [
                 return res.status(403).json({ message: bloqueado.message });
             }
             // Verificar la contraseña utilizando el servicio
-            const isMatch = await authService.verifyPassword(password, account.contrasenia_hash);
+           // const isMatch = await authService.verifyPassword(password, account.contrasenia_hash);
+            
+            const isMatch = await authService.verifyPasswordWithOutHash(password, account.contrasenia_hash);
             if (!isMatch) {
                 // Manejar el intento fallido
                 const result = await authService.handleFailedAttempt(user._id, req.ip);

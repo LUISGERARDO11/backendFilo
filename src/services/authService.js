@@ -30,6 +30,17 @@ exports.verifyPassword = async (password, hashedPassword) => {
     throw new Error("Error al verificar la contraseña: " + error.message);
   }
 };
+
+exports.verifyPasswordWithOutHash = async (password, storedPassword) => {
+  try {
+    // Comparar directamente las dos contraseñas en texto plano
+    const isMatch = password === storedPassword;
+    return isMatch;
+  } catch (error) {
+    throw new Error("Error al verificar la contraseña: " + error.message);
+  }
+};
+
 // Generar un token JWT para el usuario autenticado
 exports.generateJWT = (user) => {
   return jwt.sign(
