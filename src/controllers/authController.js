@@ -46,13 +46,12 @@ exports.register = [
 
             const savedUser = await newUser.save();
             // Cifrar la contraseña utilizando el servicio
-            //const hashedPassword = await authService.hashPassword(password);
+            const hashedPassword = await authService.hashPassword(password);
 
             // Crear una cuenta vinculada al usuario
             const newAccount = new Account({
                 user_id: savedUser._id,
-                contrasenia_hash: password,
-                //contrasenia_hash: hashedPassword,
+                contrasenia_hash: hashedPassword,
                 estado_contrasenia: {
                     requiere_cambio: false,
                     fecha_ultimo_cambio: new Date(),
@@ -163,9 +162,9 @@ exports.login = [
                 return res.status(403).json({ message: bloqueado.message });
             }
             // Verificar la contraseña utilizando el servicio
-           // const isMatch = await authService.verifyPassword(password, account.contrasenia_hash);
+           const isMatch = await authService.verifyPassword(password, account.contrasenia_hash);
             
-            const isMatch = await authService.verifyPasswordWithOutHash(password, account.contrasenia_hash);
+           // const isMatch = await authService.verifyPasswordWithOutHash(password, account.contrasenia_hash);
             if (!isMatch) {
                 // Manejar el intento fallido
                 const result = await authService.handleFailedAttempt(user._id, req.ip);
@@ -221,7 +220,7 @@ exports.login = [
                 maxAge: 3600000 // 1 hora
             });
 
-            res.status(200).json({ message: 'Inicio de sesión exitoso' });
+            res.status(200).json({userId: user._id, tipo: user.tipo_usuario , message: 'Inicio de sesión exitoso' });
         } catch (error) {
             res.status(500).json({ message: 'Error en el inicio de sesión', error: error.message });
         }
