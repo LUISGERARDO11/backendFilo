@@ -19,4 +19,7 @@ router.delete('/delete-customer/:id', authMiddleware, tokenExpirationMiddleware.
 
 // Ruta para obtener todos los usuarios con su sesión más reciente 
 router.get('/all-users/', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration,roleMiddleware(['administrador']), userController.getAllUsersWithSessions);
+
+// Ruta para actualizar el número máximo de intentos fallidos de login en todas las cuentas
+router.put('/update-max-login-attempts', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration,  roleMiddleware(['administrador']), incidentController.updateMaxFailedLoginAttempts);
 module.exports = router; 

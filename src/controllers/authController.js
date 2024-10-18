@@ -118,7 +118,7 @@ exports.login = [
     // Validar y sanitizar entradas
     body('email').isEmail().normalizeEmail(),
     body('password').not().isEmpty().trim().escape(),
-    body('recaptchaToken').not().isEmpty().withMessage('Se requiere el token de reCAPTCHA'),
+    //body('recaptchaToken').not().isEmpty().withMessage('Se requiere el token de reCAPTCHA'),
 
     async (req, res) => {
         const errors = validationResult(req);
