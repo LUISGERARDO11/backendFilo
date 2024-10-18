@@ -1,6 +1,7 @@
 /* This code snippet is a JavaScript function that is part of a Node.js application. Here's a breakdown
 of what it does: */
 const incidentUtils = require('../utils/incidentUtils');
+const loggerUtils = require('../utils/loggerUtils');
 const Account = require('../models/Account');
 
 // Obtener el historial de intentos fallidos de inicio de sesión

@@ -10,6 +10,7 @@ const FailedAttempt = require("../models/FailedAttempt");
 const User = require("../models/User");
 //importar utilidades
 const authUtils = require("../utils/authUtils");
+const loggerUtils = require('../utils/loggerUtils');
 
 // Cifrar la contraseña antes de guardarla
 exports.hashPassword = async (password) => {
@@ -103,12 +104,14 @@ exports.handleFailedAttempt = async (user_id, ip) => {
           await user.save();
       }
 
+      loggerUtils.logUserActivity(user_id, 'account_locked', 'Cuenta bloqueada por intentos fallidos');
+
       return {
           locked: true,
           message: 'Cuenta bloqueada temporalmente debido a múltiples intentos fallidos.',
       };
   }
-
+  loggerUtils.logUserActivity(user_id, 'login_failed', `Intento fallido ${failedAttempt.numero_intentos}/${MAX_FAILED_ATTEMPTS}`);
   return { locked: false, message: 'Intento fallido registrado.' };
 };
 // Limpiar intentos fallidos después de un inicio de sesión exitoso

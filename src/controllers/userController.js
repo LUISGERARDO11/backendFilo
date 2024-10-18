@@ -7,6 +7,7 @@ const PassHistory = require('../models/PassHistory');
 const FailedAttempt = require('../models/FailedAttempt');
 const Session = require('../models/Session');
 const { body, validationResult } = require('express-validator');
+const loggerUtils = require('../utils/loggerUtils');
 
 //** GESTION DE PERFIL DE USUARIOS  **
 // Actualización del perfil del usuario (nombre, dirección, teléfono)
@@ -114,11 +115,13 @@ exports.deleteMyAccount = async (req, res) => {
         // Buscar al usuario por su ID
         const user = await User.findById(userId);
         if (!user) {
+            loggerUtils.logUserActivity(userId, 'account_deletion_failed', 'Usuario no encontrado');
             return res.status(404).json({ message: 'Usuario no encontrado' });
         }
 
         // Verificar que el usuario sea de tipo "cliente"
         if (user.tipo_usuario !== 'cliente') {
+            loggerUtils.logUserActivity(userId, 'account_deletion_failed', 'Intento no autorizado de eliminar una cuenta de tipo no cliente');
             return res.status(403).json({ message: 'Solo los usuarios de tipo cliente pueden eliminar su propia cuenta.' });
         }
 
@@ -137,9 +140,13 @@ exports.deleteMyAccount = async (req, res) => {
         // Eliminar las sesiones activas del usuario en `sessions`
         await Session.deleteMany({ user_id: userId });
 
+        // Registrar la eliminación de la cuenta
+        loggerUtils.logUserActivity(userId, 'account_deletion', 'Cuenta eliminada exitosamente');
+
         // Responder con éxito
         res.status(200).json({ message: 'Tu cuenta y todos los registros relacionados han sido eliminados exitosamente.' });
     } catch (error) {
+        loggerUtils.logCriticalError(error);
         res.status(500).json({ message: 'Error al eliminar tu cuenta', error: error.message });
     }
 };

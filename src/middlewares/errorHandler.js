@@ -1,3 +1,4 @@
+const logger = require('../config/logger');
 /**
  * The errorHandler function in JavaScript handles various types of errors and returns appropriate
  * responses with detailed messages for each case.
@@ -21,7 +22,7 @@
  */
 const errorHandler = (err, req, res, next) => {
   console.error(err); // Imprime el error en la consola para depuración
-
+  logger.error(`Error: ${err.message}`, { stack: err.stack });
   // Manejo de errores de validación de Mongoose
   if (err.name === "ValidationError") {
     return res.status(400).json({

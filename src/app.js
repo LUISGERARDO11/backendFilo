@@ -3,6 +3,8 @@ doing: */
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const corsConfig = require('./config/corsConfig'); 
+const morgan = require('morgan');
+const logger = require('./config/logger');
 // Importar los middlewares
 const errorHandler = require('./middlewares/errorHandler');
 const { generalLimiter } = require('./middlewares/expressRateLimit');
@@ -26,6 +28,13 @@ app.use(generalLimiter);
 
 // Configura cookie-parser
 app.use(cookieParser());
+
+// Integrar Morgan con Winston para registrar las solicitudes HTTP
+app.use(morgan('combined', {
+  stream: {
+      write: (message) => logger.info(message.trim()) // Enviar logs de solicitudes HTTP a Winston
+  }
+}));
 
 // Ruta de prueba
 app.get('/', (req, res) => {

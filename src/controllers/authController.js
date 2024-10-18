@@ -7,6 +7,7 @@ const FailedAttempt = require('../models/FailedAttempt');
 const userService = require('../services/userService');
 const authService = require('../services/authService'); // Para el hash y verificación de contraseñas
 const authUtils = require('../utils/authUtils');
+const loggerUtils = require('../utils/loggerUtils');
 const crypto = require('crypto');
 const { body, validationResult } = require('express-validator');
 const axios = require('axios');
@@ -71,8 +72,13 @@ exports.register = [
             await savedUser.save();
 
             await authService.sendVerificationEmailVersion2(savedUser.email, verificationToken);
+            
+            // Registrar actividad de creación de usuario
+            loggerUtils.logUserActivity(savedUser._id, 'account_creation', 'Usuario registrado exitosamente');
+            
             res.status(201).json({ message: 'Usuario registrado exitosamente', user: savedUser });
         } catch (error) {
+            loggerUtils.logCriticalError(error);
             res.status(500).json({ message: 'Error en el registro de usuario', error: error.message });
         }
     }
@@ -130,7 +136,7 @@ exports.login = [
 
         try {
             // 1. Verificar el token de reCAPTCHA con la API de Google
-            const recaptchaSecretKey = process.env.RECAPTCHA_SECRET_KEY;
+            /*const recaptchaSecretKey = process.env.RECAPTCHA_SECRET_KEY;
             const recaptchaResponse = await axios.post(`https://www.google.com/recaptcha/api/siteverify`, null, {
                 params: {
                     secret: recaptchaSecretKey,
@@ -141,25 +147,29 @@ exports.login = [
             const { success, score } = recaptchaResponse.data;
             if (!success || score < 0.5) {
                 return res.status(400).json({ message: 'Fallo en la verificación de reCAPTCHA' });
-            }
+            }*/
             
             // Buscar al usuario y su cuenta vinculada
             const user = await User.findOne({ email });
             if (!user) {
+                loggerUtils.logUserActivity(null, 'login_failed', `Intento de inicio de sesión fallido para email no encontrado: ${email}`);
                 return res.status(400).json({ message: 'Usuario no encontrado' });
             }
               // Verificar si el estado del usuario es "pendiente"
             if (user.estado === 'pendiente') {
+                loggerUtils.logUserActivity(user._id, 'login_failed', 'Intento de inicio de sesión con cuenta pendiente de verificación');
                 return res.status(403).json({ message: 'Debes verificar tu correo electrónico antes de iniciar sesión.' });
             }
 
             const account = await Account.findOne({ user_id: user._id });
             if (!account) {
+                loggerUtils.logUserActivity(user._id, 'login_failed', 'Intento de inicio de sesión fallido: cuenta no encontrada');
                 return res.status(400).json({ message: 'Cuenta no encontrada' });
             }
 
             const bloqueado = await authService.isUserBlocked(user._id);
             if (bloqueado.blocked) {
+                loggerUtils.logUserActivity(user._id, 'login_failed', 'Cuenta bloqueada');
                 return res.status(403).json({ message: bloqueado.message });
             }
             // Verificar la contraseña utilizando el servicio
@@ -170,6 +180,7 @@ exports.login = [
                 // Manejar el intento fallido
                 const result = await authService.handleFailedAttempt(user._id, req.ip);
                 if (result.locked) {
+                    loggerUtils.logUserActivity(user._id, 'account_locked', 'Cuenta bloqueada por intentos fallidos');
                     return res.status(403).json({ locked:true, message: 'Tu cuenta ha sido bloqueada debido a múltiples intentos fallidos. Debes cambiar tu contraseña.' });
                 }
                 return res.status(400).json({ message: 'Credenciales incorrectas', ...result });
@@ -182,10 +193,12 @@ exports.login = [
             const activeSessionsCount = await Session.countDocuments({ user_id: user._id, revocada: false });
 
             if (user.tipo_usuario === 'cliente' && activeSessionsCount >= 5) {
-                return res.status(403).json({ message: 'Límite de sesiones activas alcanzado (5 sesiones permitidas para usuarios tipo cliente).' });
+                loggerUtils.logUserActivity(user._id, 'login_failed', 'Límite de sesiones activas alcanzado');
+                return res.status(403).json({ message: 'Límite de sesiones activas alcanzado (5 sesiones permitidas).' });
             }
             
             if (user.tipo_usuario === 'administrador' && activeSessionsCount >= 2) {
+                loggerUtils.logUserActivity(user._id, 'login_failed', 'Límite de sesiones activas alcanzado');
                 return res.status(403).json({ message: 'Límite de sesiones activas alcanzado (2 sesiones permitidas para administradores).' });
             }
             
@@ -216,6 +229,9 @@ exports.login = [
 
             await newSession.save();
 
+            // Registrar el inicio de sesión exitoso
+            loggerUtils.logUserActivity(user._id, 'login', 'Inicio de sesión exitoso');
+
             // Establecer la cookie con el token
             res.cookie('token', token, {
                 httpOnly: true, 
@@ -226,6 +242,7 @@ exports.login = [
 
             res.status(200).json({userId: user._id, tipo: user.tipo_usuario , message: 'Inicio de sesión exitoso' });
         } catch (error) {
+            loggerUtils.logCriticalError(error);
             res.status(500).json({ message: 'Error en el inicio de sesión', error: error.message });
         }
     }
@@ -396,16 +413,19 @@ exports.changePassword = [
         try {
             const account = await Account.findOne({ user_id: userId });
             if (!account) {
+                loggerUtils.logUserActivity(userId, 'password_change_failed', 'Cuenta no encontrada');
                 return res.status(404).json({ message: 'Cuenta no encontrada' });
             }
 
             const isMatch = await authService.verifyPassword(currentPassword, account.contrasenia_hash);
             if (!isMatch) {
+                loggerUtils.logUserActivity(userId, 'password_change_failed', 'Contraseña actual incorrecta');
                 return res.status(400).json({ message: 'Contraseña actual incorrecta' });
             }
 
             const result = await userService.trackPasswordHistory(account._id, account.contrasenia_hash, newPassword);
             if (!result.success) {
+                loggerUtils.logUserActivity(userId, 'password_change_failed', result.message);
                 return res.status(400).json({ message: result.message });
             }
 
@@ -421,7 +441,12 @@ exports.changePassword = [
             // Revocar todas las sesiones activas después del cambio de contraseña
             await Session.updateMany({ user_id: userId, revocada: false }, { revocada: true });
 
+            // Enviar notificación de cambio de contraseña
             await authService.sendPasswordChangeNotification(user.email);
+
+            // Registrar el cambio de contraseña exitoso
+            loggerUtils.logUserActivity(userId, 'password_change', 'Contraseña actualizada exitosamente');
+
             res.status(200).json({ message: 'Contraseña actualizada exitosamente.' });
         } catch (error) {
             res.status(500).json({ message: 'Error al cambiar la contraseña', error: error.message });
@@ -542,18 +567,21 @@ exports.resetPassword = [
             // Buscar al usuario por su correo
             const user = await User.findOne({ email });
             if (!user) {
+                loggerUtils.logUserActivity(null, 'password_reset_failed', `Usuario no encontrado para el correo: ${email}`);
                 return res.status(404).json({ message: 'Usuario no encontrado.' });
             }
 
             // Buscar la cuenta asociada al usuario
             const account = await Account.findOne({ user_id: user._id });
             if (!account) {
+                loggerUtils.logUserActivity(user._id, 'password_reset_failed', 'Cuenta no encontrada');
                 return res.status(404).json({ message: 'Cuenta no encontrada.' });
             }
 
             // Verificar si la nueva contraseña es diferente a las anteriores 
             const result = await userService.trackPasswordHistory(account._id, account.contrasenia_hash, newPassword);
             if (!result.success) {
+                loggerUtils.logUserActivity(user._id, 'password_reset_failed', result.message);
                 return res.status(400).json({ message: result.message });
             }
 
@@ -571,7 +599,6 @@ exports.resetPassword = [
             // Revocar todas las sesiones activas del usuario después del cambio de contraseña
             await Session.updateMany({ user_id: user._id, revocada: false }, { revocada: true });
 
-            
             // Cambiar el estado del usuario a 'activo' si estaba bloqueado
             if (user.estado === 'bloqueado') {
                 user.estado = 'activo';
@@ -580,6 +607,9 @@ exports.resetPassword = [
 
             // Enviar una notificación de cambio de contraseña al usuario
             await authService.sendPasswordChangeNotification(user.email);
+
+            // Registrar el cambio de contraseña exitoso
+            loggerUtils.logUserActivity(user._id, 'password_reset', 'Contraseña restablecida exitosamente');
 
             return res.status(200).json({ message: 'Contraseña actualizada exitosamente.' });
         } catch (error) {
