@@ -12,15 +12,19 @@ const logger = createLogger({
         format.json()
     ),
     transports: [
-        new transports.Console({ level: 'info' }), // Registra en consola
-        new transports.File({ filename: 'logs/error.log', level: 'error' }), // Solo errores
-        new transports.File({ filename: 'logs/combined.log' }) // Todos los logs
+        new transports.Console({
+            format: format.combine(
+                format.colorize(), // Colores para la consola
+                format.simple()    // Simple en consola
+            )
+        })
     ],
 });
 
-// En producción, limitar a solo errores en la consola
-if (process.env.NODE_ENV === 'production') {
-    logger.add(new transports.Console({ format: format.simple(), level: 'error' }));
+// Solo escribir en archivos si no estamos en producción
+if (process.env.NODE_ENV !== 'production') {
+    logger.add(new transports.File({ filename: 'logs/error.log', level: 'error' })); // Solo errores
+    logger.add(new transports.File({ filename: 'logs/combined.log' })); // Todos los logs
 }
 
 module.exports = logger;
