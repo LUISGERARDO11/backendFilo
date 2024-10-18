@@ -4,6 +4,7 @@ const express = require('express');
 const cookieParser = require('cookie-parser');
 const corsConfig = require('./config/corsConfig'); 
 const morgan = require('morgan');
+//Importar el logger
 const logger = require('./config/logger');
 // Importar los middlewares
 const errorHandler = require('./middlewares/errorHandler');
