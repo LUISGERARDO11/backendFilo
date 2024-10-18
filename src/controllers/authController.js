@@ -366,6 +366,8 @@ exports.verifyOTPMFA = async (req, res) => {
         // Enviar respuesta exitosa y el token
         res.status(200).json({ 
             success: true, 
+            userId: user._id, 
+            tipo: user.tipo_usuario,
             message: 'OTP verificado correctamente. Inicio de sesión exitoso.' 
         });
 
