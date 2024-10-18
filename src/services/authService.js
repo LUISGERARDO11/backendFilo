@@ -59,49 +59,57 @@ exports.verifyJWT = (token) => {
 };
 // Manejar intentos fallidos de inicio de sesión y bloquear cuentas si es necesario
 exports.handleFailedAttempt = async (user_id, ip) => {
-  const MAX_FAILED_ATTEMPTS = 5; // Número máximo de intentos fallidos permitidos
+  // Buscar la cuenta del usuario para obtener el máximo de intentos permitidos
+  const account = await Account.findOne({ user_id });
+    
+  if (!account) {
+      return {
+          locked: false,
+          message: 'Cuenta no encontrada.',
+      };
+  }
+
+  const MAX_FAILED_ATTEMPTS = account.maximo_intentos_fallidos_login; // Obtener el máximo de intentos fallidos de la cuenta
 
   // Buscar intentos fallidos previos del usuario
   let failedAttempt = await FailedAttempt.findOne({ user_id });
 
   if (!failedAttempt) {
-    // Si no hay intentos previos, crear un nuevo documento de intento fallido
-    failedAttempt = new FailedAttempt({
-      user_id,
-      fecha: new Date(),
-      ip,
-      numero_intentos: 1,
-    });
+      // Si no hay intentos previos, crear un nuevo registro de intento fallido
+      failedAttempt = new FailedAttempt({
+          user_id,
+          fecha: new Date(),
+          ip,
+          numero_intentos: 1,
+      });
   } else {
-    // Si ya existen intentos fallidos, incrementar el contador
-    failedAttempt.numero_intentos += 1;
-    failedAttempt.fecha = new Date();
+      // Si ya existen intentos fallidos, incrementar el contador
+      failedAttempt.numero_intentos += 1;
+      failedAttempt.fecha = new Date();
   }
 
   await failedAttempt.save();
 
   // Si el número de intentos supera el máximo permitido, bloquear la cuenta
   if (failedAttempt.numero_intentos >= MAX_FAILED_ATTEMPTS) {
-    const account = await Account.findOne({ user_id });
-    if (account) {
-      account.estado_contrasenia.requiere_cambio = true; // Forzar al usuario a cambiar la contraseña
+      // Bloquear la cuenta al forzar el cambio de contraseña
+      account.estado_contrasenia.requiere_cambio = true;
       await account.save();
-    }
-    // Cambiar el estado del usuario a 'bloqueado'
-    const user = await User.findById(user_id);
-    if (user) {
-      user.estado = "bloqueado"; // Cambiar el estado del usuario a bloqueado
-      await user.save();
-    }
 
-    return {
-      locked: true,
-      message:
-        "Cuenta bloqueada temporalmente debido a múltiples intentos fallidos.",
-    };
+      // Cambiar el estado del usuario a 'bloqueado'
+      const user = await User.findById(user_id);
+      if (user) {
+          user.estado = 'bloqueado'; // Cambiar el estado del usuario a bloqueado
+          await user.save();
+      }
+
+      return {
+          locked: true,
+          message: 'Cuenta bloqueada temporalmente debido a múltiples intentos fallidos.',
+      };
   }
 
-  return { locked: false, message: "Intento fallido registrado." };
+  return { locked: false, message: 'Intento fallido registrado.' };
 };
 // Limpiar intentos fallidos después de un inicio de sesión exitoso
 exports.clearFailedAttempts = async (user_id) => {

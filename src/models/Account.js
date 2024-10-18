@@ -44,6 +44,11 @@ const AccountSchema = new mongoose.Schema({
         expiracion_codigo: { type: Date }, // Fecha de expiración del código de recuperación
         intentos: { type: Number, default: 0 }, // Intentos fallidos al introducir el código
         codigo_valido: { type: Boolean, default: false } // Si el código sigue siendo válido
+    },
+    maximo_intentos_fallidos_login:{
+        type: Number,
+        required: true,
+        default:5
     }
 }, { timestamps: true });
 

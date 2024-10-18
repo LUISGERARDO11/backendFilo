@@ -3,6 +3,7 @@ management for an authentication system. Here is a summary of the main functiona
 const User = require('../models/User');
 const Account = require('../models/Account');
 const Session = require('../models/Session');
+const FailedAttempt = require('../models/FailedAttempt');
 const userService = require('../services/userService');
 const authService = require('../services/authService'); // Para el hash y verificación de contraseñas
 const authUtils = require('../utils/authUtils');
@@ -168,7 +169,10 @@ exports.login = [
             if (!isMatch) {
                 // Manejar el intento fallido
                 const result = await authService.handleFailedAttempt(user._id, req.ip);
-                return res.status(400).json({ message: 'Contraseña incorrecta', ...result });
+                if (result.locked) {
+                    return res.status(403).json({ locked:true, message: 'Tu cuenta ha sido bloqueada debido a múltiples intentos fallidos. Debes cambiar tu contraseña.' });
+                }
+                return res.status(400).json({ message: 'Credenciales incorrectas', ...result });
             }
 
             // Limpiar los intentos fallidos si el inicio de sesión fue exitoso
@@ -559,8 +563,18 @@ exports.resetPassword = [
             // Guardar los cambios
             await account.save();
 
+            // Restablecer los intentos fallidos del usuario
+            await FailedAttempt.deleteMany({ user_id: user._id });
+
             // Revocar todas las sesiones activas del usuario después del cambio de contraseña
             await Session.updateMany({ user_id: user._id, revocada: false }, { revocada: true });
+
+            
+            // Cambiar el estado del usuario a 'activo' si estaba bloqueado
+            if (user.estado === 'bloqueado') {
+                user.estado = 'activo';
+                await user.save();
+            }
 
             // Enviar una notificación de cambio de contraseña al usuario
             await authService.sendPasswordChangeNotification(user.email);
