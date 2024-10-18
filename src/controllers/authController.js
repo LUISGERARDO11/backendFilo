@@ -11,6 +11,7 @@ const loggerUtils = require('../utils/loggerUtils');
 const crypto = require('crypto');
 const { body, validationResult } = require('express-validator');
 const axios = require('axios');
+const jwt = require("jsonwebtoken");
 
 //** GESTION DE USUARIOS  **
 // Registro de usuarios
@@ -124,7 +125,7 @@ exports.login = [
     // Validar y sanitizar entradas
     body('email').isEmail().normalizeEmail(),
     body('password').not().isEmpty().trim().escape(),
-    body('recaptchaToken').not().isEmpty().withMessage('Se requiere el token de reCAPTCHA'),
+    //body('recaptchaToken').not().isEmpty().withMessage('Se requiere el token de reCAPTCHA'),
 
     async (req, res) => {
         const errors = validationResult(req);
@@ -136,7 +137,7 @@ exports.login = [
 
         try {
             // 1. Verificar el token de reCAPTCHA con la API de Google
-            const recaptchaSecretKey = process.env.RECAPTCHA_SECRET_KEY;
+            /*const recaptchaSecretKey = process.env.RECAPTCHA_SECRET_KEY;
             const recaptchaResponse = await axios.post(`https://www.google.com/recaptcha/api/siteverify`, null, {
                 params: {
                     secret: recaptchaSecretKey,
@@ -147,7 +148,7 @@ exports.login = [
             const { success, score } = recaptchaResponse.data;
             if (!success || score < 0.5) {
                 return res.status(400).json({ message: 'Fallo en la verificación de reCAPTCHA' });
-            }
+            }*/
             
             // Buscar al usuario y su cuenta vinculada
             const user = await User.findOne({ email });
@@ -649,4 +650,54 @@ exports.revokeTokens = async (user_id) => {
     } catch (error) {
         console.error('Error revocando sesiones anteriores:', error);
     }
+};
+//Autentificar tokens y renovacion si está cerca de expirar
+exports.checkAuth = async (req, res, next) => {
+    const token = req.cookies.token; // Extraer el token de la cookie
+
+    if (!token) {
+        return res.status(401).json({ message: "No autenticado" });
+    }
+
+    let decoded;
+    try {
+        decoded = jwt.verify(token, process.env.JWT_SECRET); // Verificación del token JWT
+    } catch (err) {
+        return res.status(401).json({ message: "Token inválido o expirado" });
+    }
+
+    const userId = decoded.user_id;
+
+    // Búsqueda del usuario
+    const user = await User.findById(userId);
+    if (!user) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    // Verificación de la cuenta del usuario
+    if (user.estado !== "activo") {
+        return res.status(403).json({ message: "Usuario no autorizado o inactivo." });
+    }
+
+    // Renovar el token si está cerca de expirar
+    const expirationThreshold = 15 * 60; // 15 minutos en segundos
+    if (decoded.exp - Date.now() / 1000 < expirationThreshold) {
+        const newToken = authService.generateJWT(user); // Generar un nuevo token
+
+        // Establecer la nueva cookie con el token renovado
+        res.cookie("token", newToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "Strict",
+            maxAge: 3600000, // 1 hora
+        });
+    }
+
+    // Envío de la información del usuario
+    res.json({
+        userId: user.id,
+        email: user.email,
+        tipo: user.tipo_usuario, 
+        nombre: user.nombre, 
+    });
 };

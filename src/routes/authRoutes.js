@@ -23,6 +23,9 @@ router.get('/verify-email', authController.verifyEmailVersion2);
 // Ruta para iniciar sesión y obtener un JWT
 router.post('/login', authController.login);
 
+// Ruta para hacer check de autentificacion
+router.post('/checkAuth', authController.checkAuth);
+
 // Ruta para enviar el OTP al correo del usuario para MFA
 router.post('/mfa/send-otp', authController.sendOtpMfa);
 
