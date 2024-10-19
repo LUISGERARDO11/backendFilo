@@ -6,6 +6,9 @@ const CompanySchema = new mongoose.Schema({
         required: true,
         index: true
     },
+    título_página:{
+        type:String,
+    }, 
     logo: { 
         type: String // URL del logo
     },

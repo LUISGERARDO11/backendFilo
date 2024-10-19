@@ -28,7 +28,10 @@ router.put('/update-max-login-attempts', authMiddleware, tokenExpirationMiddlewa
 router.post('/company/create', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration, roleMiddleware(['administrador']), companyController.createCompany);
 
 // Ruta para editar la información de la empresa (solo administradores)
-router.put('/company/update-', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration, roleMiddleware(['administrador']), companyController.updateCompanyInfo);
+router.put('/company/update', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration, roleMiddleware(['administrador']), companyController.updateCompanyInfo);
+
+// Ruta para eliminar links de redes sociales de la empresa (solo administradores)
+router.put('/company/delete-social-media-links', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration, roleMiddleware(['administrador']), companyController.deleteSocialMediaLinks);
 
 // Ruta para eliminar lógicamente la información de la empresa (solo administradores)
 router.delete('/company/delete', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration, roleMiddleware(['administrador']), companyController.deleteCompany);

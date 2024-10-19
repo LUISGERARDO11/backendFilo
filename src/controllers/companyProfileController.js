@@ -6,16 +6,21 @@ const loggerUtils = require('../utils/loggerUtils');
 exports.createCompany = [
     // Validar y sanitizar las entradas
     body('nombre').isString().trim().escape().withMessage('El nombre es requerido.'),
-    body('logo').optional().isString().trim().escape().withMessage('El logo debe ser una URL válida.'),
-    body('slogan').optional().isString().trim().escape().withMessage('El eslogan debe ser un texto válido.'),
+    body('logo').optional().isURL().withMessage('El logo debe ser una URL válida.'),
+    body('slogan').optional().isString().isLength({ max: 100 }).trim().escape().withMessage('El eslogan debe ser un texto válido y no exceder los 100 caracteres.'),
+    body('titulo_pagina').optional().isString().isLength({ max: 60 }).trim().escape().withMessage('El título de la página no debe exceder los 60 caracteres.'),
+    
     body('direccion.calle').optional().isString().trim().escape().withMessage('La calle debe ser un texto válido.'),
     body('direccion.ciudad').optional().isString().trim().escape().withMessage('La ciudad debe ser un texto válido.'),
     body('direccion.estado').optional().isString().trim().escape().withMessage('El estado debe ser un texto válido.'),
     body('direccion.codigo_postal').optional().isString().trim().escape().withMessage('El código postal debe ser un texto válido.'),
     body('direccion.pais').optional().isString().trim().escape().withMessage('El país debe ser un texto válido.'),
-    body('telefono.numero').optional().isString().trim().escape().withMessage('El número de teléfono debe ser válido.'),
+    
+    body('telefono.numero').optional().matches(/^\d{10}$/).withMessage('El número de teléfono debe tener 10 dígitos.'),
     body('telefono.extension').optional().isString().trim().escape().withMessage('La extensión debe ser un número válido.'),
+
     body('email').isEmail().normalizeEmail().withMessage('El correo electrónico es obligatorio y debe ser válido.'),
+
     body('redes_sociales.facebook').optional().isURL().withMessage('La URL de Facebook debe ser válida.'),
     body('redes_sociales.twitter').optional().isURL().withMessage('La URL de Twitter debe ser válida.'),
     body('redes_sociales.linkedin').optional().isURL().withMessage('La URL de LinkedIn debe ser válida.'),
@@ -27,7 +32,7 @@ exports.createCompany = [
             return res.status(400).json({ errors: errors.array() });
         }
 
-        const { nombre, logo, slogan, direccion, telefono, email, redes_sociales } = req.body;
+        const { nombre, logo, slogan, titulo_pagina, direccion, telefono, email, redes_sociales } = req.body;
 
         try {
             // Verificar si ya existe una empresa
@@ -41,6 +46,7 @@ exports.createCompany = [
                 nombre,
                 logo,
                 slogan,
+                titulo_pagina,
                 direccion,
                 telefono,
                 email,
@@ -61,22 +67,25 @@ exports.createCompany = [
         }
     }
 ];
-
-
 // Actualizar la información de la empresa
 exports.updateCompanyInfo = [
     // Validar y sanitizar las entradas
     body('nombre').optional().isString().trim().escape().withMessage('El nombre debe ser un texto válido.'),
-    body('logo').optional().isString().trim().escape().withMessage('El logo debe ser una URL válida.'),
-    body('slogan').optional().isString().trim().escape().withMessage('El eslogan debe ser un texto válido.'),
+    body('logo').optional().isURL().withMessage('El logo debe ser una URL válida.'),
+    body('slogan').optional().isString().isLength({ max: 100 }).trim().escape().withMessage('El eslogan no debe exceder los 100 caracteres.'),
+    body('titulo_pagina').optional().isString().isLength({ max: 60 }).trim().escape().withMessage('El título de la página no debe exceder los 60 caracteres.'),
+
     body('direccion.calle').optional().isString().trim().escape().withMessage('La calle debe ser un texto válido.'),
     body('direccion.ciudad').optional().isString().trim().escape().withMessage('La ciudad debe ser un texto válido.'),
     body('direccion.estado').optional().isString().trim().escape().withMessage('El estado debe ser un texto válido.'),
     body('direccion.codigo_postal').optional().isString().trim().escape().withMessage('El código postal debe ser un texto válido.'),
     body('direccion.pais').optional().isString().trim().escape().withMessage('El país debe ser un texto válido.'),
-    body('telefono.numero').optional().isString().trim().escape().withMessage('El número de teléfono debe ser válido.'),
+
+    body('telefono.numero').optional().matches(/^\d{10}$/).withMessage('El número de teléfono debe tener 10 dígitos.'),
     body('telefono.extension').optional().isString().trim().escape().withMessage('La extensión debe ser un número válido.'),
+
     body('email').optional().isEmail().normalizeEmail().withMessage('El correo electrónico debe ser válido.'),
+
     body('redes_sociales.facebook').optional().isURL().withMessage('La URL de Facebook debe ser válida.'),
     body('redes_sociales.twitter').optional().isURL().withMessage('La URL de Twitter debe ser válida.'),
     body('redes_sociales.linkedin').optional().isURL().withMessage('La URL de LinkedIn debe ser válida.'),
@@ -88,7 +97,7 @@ exports.updateCompanyInfo = [
             return res.status(400).json({ errors: errors.array() });
         }
 
-        const { nombre, logo, slogan, direccion, telefono, email, redes_sociales } = req.body;
+        const { nombre, logo, slogan, titulo_pagina, direccion, telefono, email, redes_sociales } = req.body;
 
         try {
             // Buscar la información de la empresa
@@ -102,6 +111,7 @@ exports.updateCompanyInfo = [
             if (nombre) companyInfo.nombre = nombre;
             if (logo) companyInfo.logo = logo;
             if (slogan) companyInfo.slogan = slogan;
+            if (titulo_pagina) companyInfo.titulo_pagina = titulo_pagina;
             if (direccion) companyInfo.direccion = { ...companyInfo.direccion, ...direccion };
             if (telefono) companyInfo.telefono = { ...companyInfo.telefono, ...telefono };
             if (email) companyInfo.email = email;
@@ -110,7 +120,7 @@ exports.updateCompanyInfo = [
             // Guardar los cambios en la base de datos
             const updatedCompany = await companyInfo.save();
 
-            // Registrar la actividad de actualización
+            // Registrar la actividad de actualización con auditoría
             loggerUtils.logUserActivity(req.user ? req.user._id : 'admin', 'update', 'Información de la empresa actualizada exitosamente.');
 
             // Responder con éxito
@@ -121,7 +131,6 @@ exports.updateCompanyInfo = [
         }
     }
 ];
-
 // Obtener la información de la empresa
 exports.getCompanyInfo = async (req, res) => {
     try {
@@ -138,7 +147,60 @@ exports.getCompanyInfo = async (req, res) => {
         res.status(500).json({ message: 'Error al obtener la información de la empresa.', error: error.message });
     }
 };
+// Método para eliminar enlaces a las redes sociales de la empresa
+exports.deleteSocialMediaLinks = [
+    // Validar que se envíe al menos una red social a eliminar
+    body('redes_sociales').isObject().withMessage('Debe proporcionar un objeto con las redes sociales a eliminar.'),
+    body('redes_sociales.facebook').optional().isBoolean().withMessage('Debe ser un valor booleano.'),
+    body('redes_sociales.twitter').optional().isBoolean().withMessage('Debe ser un valor booleano.'),
+    body('redes_sociales.linkedin').optional().isBoolean().withMessage('Debe ser un valor booleano.'),
+    body('redes_sociales.instagram').optional().isBoolean().withMessage('Debe ser un valor booleano.'),
 
+    async (req, res) => {
+        // Verificar errores de validación
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        const { redes_sociales } = req.body;
+
+        try {
+            // Buscar la información de la empresa
+            const companyInfo = await Company.findOne();
+
+            if (!companyInfo) {
+                return res.status(404).json({ message: 'La información de la empresa no se encontró.' });
+            }
+
+            // Eliminar las redes sociales especificadas en la solicitud
+            if (redes_sociales.facebook) {
+                companyInfo.redes_sociales.facebook = '';
+            }
+            if (redes_sociales.twitter) {
+                companyInfo.redes_sociales.twitter = '';
+            }
+            if (redes_sociales.linkedin) {
+                companyInfo.redes_sociales.linkedin = '';
+            }
+            if (redes_sociales.instagram) {
+                companyInfo.redes_sociales.instagram = '';
+            }
+
+            // Guardar los cambios en la base de datos
+            const updatedCompany = await companyInfo.save();
+
+            // Registrar la actividad de eliminación
+            loggerUtils.logUserActivity(req.user ? req.user._id : 'admin', 'delete', 'Enlaces de redes sociales eliminados exitosamente.');
+
+            // Responder con éxito
+            res.status(200).json({ message: 'Enlaces de redes sociales eliminados exitosamente.', company: updatedCompany });
+        } catch (error) {
+            loggerUtils.logCriticalError(error);
+            res.status(500).json({ message: 'Error al eliminar los enlaces de redes sociales.', error: error.message });
+        }
+    }
+];
 //Borrado lógico de la informacion de la empresa (marcarlo como inactivo)
 exports.deleteCompany = async (req, res) => {
     try {
