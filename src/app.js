@@ -15,6 +15,7 @@ const authUtils = require('./utils/authUtils');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const companyRoutes = require('./routes/companyRoutes');
 const infoPublicRoutes = require('./routes/publicInformationRoutes');
 
 const app = express();
@@ -50,6 +51,7 @@ authUtils.loadPasswordList();
 app.use('/auth', authRoutes); // Rutas de autenticación (registro, login)
 app.use('/users', userRoutes); // Rutas de usuarios autenticados (perfil)
 app.use('/admin', adminRoutes);
+app.use('/company', companyRoutes);
 app.use('/public', infoPublicRoutes);
 
 // Middleware para manejar errores

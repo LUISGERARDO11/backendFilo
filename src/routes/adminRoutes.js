@@ -10,7 +10,6 @@ const tokenExpirationMiddleware = require('../middlewares/verifyTokenExpiration'
 //Importar controladores 
 const incidentController = require('../controllers/incidentController');
 const userController = require('../controllers/userController');
-const companyController = require('../controllers/companyProfileController');
 
 // Ruta para obtener la lista de incidentes
 router.get('/failed-attempts', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration, roleMiddleware(['administrador']), incidentController.getFailedLoginAttempts);
@@ -23,20 +22,5 @@ router.get('/all-users/', authMiddleware, tokenExpirationMiddleware.verifyTokenE
 
 // Ruta para actualizar el número máximo de intentos fallidos de login en todas las cuentas
 router.put('/update-max-login-attempts', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration,  roleMiddleware(['administrador']), incidentController.updateMaxFailedLoginAttempts);
-
-// Ruta para crear la información de la empresa (solo administradores)
-router.post('/company/create', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration, roleMiddleware(['administrador']), companyController.createCompany);
-
-// Ruta para editar la información de la empresa (solo administradores)
-router.put('/company/update', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration, roleMiddleware(['administrador']), companyController.updateCompanyInfo);
-
-// Ruta para eliminar links de redes sociales de la empresa (solo administradores)
-router.put('/company/delete-social-media-links', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration, roleMiddleware(['administrador']), companyController.deleteSocialMediaLinks);
-
-// Ruta para eliminar lógicamente la información de la empresa (solo administradores)
-router.delete('/company/delete', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration, roleMiddleware(['administrador']), companyController.deleteCompany);
-
-// Ruta para restaurar la información de la empresa (solo administradores)
-router.put('/company/restore', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration, roleMiddleware(['administrador']), companyController.restoreCompany);
 
 module.exports = router; 

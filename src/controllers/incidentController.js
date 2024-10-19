@@ -6,9 +6,11 @@ const Account = require('../models/Account');
 
 // Obtener el historial de intentos fallidos de inicio de sesión
 exports.getFailedLoginAttempts = async (req, res) => {
+    const { periodo } = req.query; // Obtener el parámetro de periodo de tiempo (día, semana, mes)
+
     try {
-        // Llamar a la función en utils para obtener los intentos fallidos
-        const { clientes, administradores } = await incidentUtils.getFailedAttemptsData();
+        // Llamar a la función en utils para obtener los intentos fallidos en base al periodo
+        const { clientes, administradores } = await incidentUtils.getFailedAttemptsData(periodo);
 
         // Devolver la respuesta con los usuarios clasificados
         res.status(200).json({
