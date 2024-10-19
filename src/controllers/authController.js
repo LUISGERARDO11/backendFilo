@@ -614,8 +614,8 @@ exports.resetPassword = [
             // Guardar los cambios
             await account.save();
 
-            // Restablecer los intentos fallidos del usuario
-            await FailedAttempt.deleteMany({ user_id: user._id });
+            // Marcar los intentos fallidos como resueltos pero no eliminarlos
+            await FailedAttempt.updateMany({ user_id }, { $set: { is_resolved: true } });
 
             // Revocar todas las sesiones activas del usuario después del cambio de contraseña
             await Session.updateMany({ user_id: user._id, revocada: false }, { revocada: true });

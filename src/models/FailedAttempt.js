@@ -19,7 +19,11 @@ const FailedAttemptSchema = new mongoose.Schema({
     numero_intentos: {
         type: Number,
         default: 1 // Número de intentos fallidos consecutivos
-    }
+    },
+    is_resolved: {
+        type: Boolean,
+        default: false // Para marcar si el intento fallido fue "resuelto"
+    },
 });
 
 module.exports = mongoose.model('FailedAttempt', FailedAttemptSchema);

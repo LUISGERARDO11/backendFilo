@@ -77,7 +77,7 @@ exports.handleFailedAttempt = async (user_id, ip) => {
   const MAX_FAILED_ATTEMPTS = account.maximo_intentos_fallidos_login; // Obtener el máximo de intentos fallidos de la cuenta
 
   // Buscar intentos fallidos previos del usuario
-  let failedAttempt = await FailedAttempt.findOne({ user_id });
+  let failedAttempt = await FailedAttempt.findOne({ user_id, is_resolved: false });
 
   if (!failedAttempt) {
       // Si no hay intentos previos, crear un nuevo registro de intento fallido
@@ -86,6 +86,7 @@ exports.handleFailedAttempt = async (user_id, ip) => {
           fecha: new Date(),
           ip,
           numero_intentos: 1,
+          is_resolved: false,
       });
   } else {
       // Si ya existen intentos fallidos, incrementar el contador
@@ -120,7 +121,7 @@ exports.handleFailedAttempt = async (user_id, ip) => {
 };
 // Limpiar intentos fallidos después de un inicio de sesión exitoso
 exports.clearFailedAttempts = async (user_id) => {
-  await FailedAttempt.deleteOne({ user_id });
+  await FailedAttempt.updateMany({ user_id }, { $set: { is_resolved: true } });
 };
 // Bloquear la cuenta manualmente si es necesario
 exports.lockAccount = async (user_id) => {
