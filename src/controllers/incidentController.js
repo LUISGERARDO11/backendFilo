@@ -14,12 +14,16 @@ exports.getFailedLoginAttempts = async (req, res) => {
         // Llamar a la función en utils para obtener los intentos fallidos en base al periodo
         const { clientes, administradores } = await incidentUtils.getFailedAttemptsData(periodo);
 
+        // Registrar evento de seguridad: consulta de intentos fallidos de inicio de sesión
+        loggerUtils.logSecurityEvent(req.user ? req.user._id : 'admin', 'failed-login-attempts', 'view', `Consulta de intentos fallidos en el periodo ${periodo}.`);
+
         // Devolver la respuesta con los usuarios clasificados
         res.status(200).json({
             clientes,
             administradores
         });
     } catch (error) {
+        loggerUtils.logCriticalError(error);
         res.status(500).json({ message: 'Error al obtener los intentos fallidos', error: error.message });
     }
 };
@@ -39,11 +43,15 @@ exports.updateMaxFailedLoginAttempts = async (req, res) => {
         // Actualizar el campo maximo_intentos_fallidos_login en todas las cuentas
         const result = await Account.updateMany({}, { $set: { 'maximo_intentos_fallidos_login': maxAttempts } });
 
+        // Registrar evento de seguridad: actualización del máximo de intentos fallidos
+        loggerUtils.logSecurityEvent(req.user ? req.user._id : 'admin', 'account-settings', 'update', `Actualización del máximo de intentos fallidos a ${maxAttempts}.`);
+
         return res.status(200).json({
             message: `Se ha actualizado el máximo de intentos fallidos a ${maxAttempts} en todas las cuentas.`,
             modifiedCount: result.nModified // Mostrar cuántas cuentas fueron modificadas
         });
     } catch (error) {
+        loggerUtils.logCriticalError(error);
         return res.status(500).json({
             message: 'Error al actualizar el máximo de intentos fallidos.',
             error: error.message
@@ -69,6 +77,14 @@ exports.updateTokenLifetime = [
     body('sesion_lifetime')
         .isInt({ min: 300, max: 2592000 }) // Sesión entre 5 minutos y 30 días
         .withMessage('El tiempo de vida de la sesión debe estar entre 5 minutos y 30 días.')
+        .toInt(),
+    body('cookie_lifetime')
+        .isInt({ min: 300, max: 2592000 }) // Cookie entre 5 minutos y 30 días
+        .withMessage('El tiempo de vida de la cookie debe estar entre 5 minutos y 30 días.')
+        .toInt(),
+    body('expirationThreshold_lifetime')
+        .isInt({ min: 60, max: 1800 }) // expirationThreshold entre 1 minuto y 30 minutos
+        .withMessage('El tiempo de vida de expirationThreshold debe estar entre 1 minuto y 30 minutos.')
         .toInt(),
 
     async (req, res) => {

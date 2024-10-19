@@ -3,6 +3,7 @@ management for an authentication system. Here is a summary of the main functiona
 const User = require('../models/User');
 const Account = require('../models/Account');
 const Session = require('../models/Session');
+const Config = require('../models/Config');
 const FailedAttempt = require('../models/FailedAttempt');
 const userService = require('../services/userService');
 const authService = require('../services/authService'); // Para el hash y verificación de contraseñas
@@ -67,9 +68,13 @@ exports.register = [
             // Generar token de verificación
             const verificationToken = crypto.randomBytes(32).toString('hex');
 
+            // Obtener el tiempo de vida del token de verificación desde la base de datos
+            const config = await Config.findOne();
+            const verificationLifetime = config ? config.verificacion_correo_lifetime * 1000 : 24 * 60 * 60 * 1000; // 24 horas por defecto
+
             // Guardar el token y la fecha de expiración en el usuario
             savedUser.verificacionCorreoToken = verificationToken;
-            savedUser.verificacionCorreoExpira = Date.now() + 24 * 60 * 60 * 1000; // Expira en 24 horas
+            savedUser.verificacionCorreoExpira = Date.now() + verificationLifetime; // Usar tiempo de vida desde la BD
             await savedUser.save();
 
             await authService.sendVerificationEmailVersion2(savedUser.email, verificationToken);
@@ -214,7 +219,11 @@ exports.login = [
             }
 
             //Si MFA no está habilitado, Generar el JWT utilizando el servicio
-            const token = authService.generateJWT(user);
+            const token = await authService.generateJWT(user);
+
+            //Buscar el tiempo de vida de la sesion
+            const config = await Config.findOne();
+            const sesionLifetime = config ? config.sesion_lifetime  * 1000 : 3600000; // 1 hora por defecto
 
             // Guardar la sesión
             const newSession = new Session({
@@ -222,7 +231,7 @@ exports.login = [
                 token,
                 fecha_creacion: new Date(),
                 ultima_actividad: new Date(),
-                expiracion: new Date(Date.now() + 3600000), // 1 hora
+                expiracion: new Date(Date.now() + sesionLifetime),
                 ip: req.ip,
                 navegador: req.headers['user-agent'],
                 revocada: false
@@ -233,12 +242,14 @@ exports.login = [
             // Registrar el inicio de sesión exitoso
             loggerUtils.logUserActivity(user._id, 'login', 'Inicio de sesión exitoso');
 
+            const cookieLifetime = config ? config.cookie_lifetime * 1000 : 3600000;
+
             // Establecer la cookie con el token
             res.cookie('token', token, {
                 httpOnly: true, 
                 secure: process.env.NODE_ENV === 'production', 
                 sameSite: 'Strict',
-                maxAge: 3600000 // 1 hora
+                maxAge: cookieLifetime // 1 hora
             });
 
             res.status(200).json({userId: user._id, tipo: user.tipo_usuario , message: 'Inicio de sesión exitoso' });
@@ -297,9 +308,13 @@ exports.sendOtpMfa = async (req, res) => {
              return res.status(404).json({ message: 'Usuario no encontrado.' });
          }
  
+         // Obtener la configuración de tiempo de vida del OTP desde la base de datos
+        const config = await Config.findOne();
+        const otpLifetime = config ? config.otp_lifetime * 1000 : 15 * 60 * 1000; // Usar 15 minutos por defecto si no se encuentra la configuración
+
          // Generar OTP y definir una expiración de 15 minutos
          const otp = authUtils.generateOTP();
-         const expiration = new Date(Date.now() + 15 * 60 * 1000);
+         const expiration = new Date(Date.now() + otpLifetime);
  
          // Almacenar el OTP y la expiración en la base de datos
          account.configuracion_2fa = {
@@ -359,13 +374,16 @@ exports.verifyOTPMFA = async (req, res) => {
         // Generar el JWT utilizando el servicio
         const token = authService.generateJWT(user);
 
+        const config = await Config.findOne();
+        const sesionLifetime = config ? config.sesion_lifetime * 1000 : 3600000;
+
         // Guardar la sesión
         const newSession = new Session({
             user_id: user._id,
             token,
             fecha_creacion: new Date(),
             ultima_actividad: new Date(),
-            expiracion: new Date(Date.now() + 3600000), // 1 hora
+            expiracion: new Date(Date.now() + sesionLifetime),
             ip: req.ip,
             navegador: req.headers['user-agent'],
             revocada: false
@@ -373,12 +391,14 @@ exports.verifyOTPMFA = async (req, res) => {
 
         await newSession.save();
 
+        const cookieLifetime = config ? config.cookie_lifetime * 1000 : 3600000;
+
         // Establecer la cookie con el token
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'Strict',
-            maxAge: 3600000 // 1 hora
+            maxAge: cookieLifetime // 1 hora
         });
 
         // Enviar respuesta exitosa y el token
@@ -678,10 +698,12 @@ exports.checkAuth = async (req, res, next) => {
     if (user.estado !== "activo") {
         return res.status(403).json({ message: "Usuario no autorizado o inactivo." });
     }
+    const config = await Config.findOne();
+    const expirationThresholdSeconds = config ? config.expirationThreshold_lifetime : 900; // En segundos
+    const cookieLifetimeMilliseconds = config ? config.cookie_lifetime * 1000 : 3600000; // En milisegundos
 
     // Renovar el token si está cerca de expirar
-    const expirationThreshold = 15 * 60; // 15 minutos en segundos
-    if (decoded.exp - Date.now() / 1000 < expirationThreshold) {
+    if (decoded.exp - Date.now() / 1000 < expirationThresholdSeconds) {
         const newToken = authService.generateJWT(user); // Generar un nuevo token
 
         // Establecer la nueva cookie con el token renovado
@@ -689,7 +711,7 @@ exports.checkAuth = async (req, res, next) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "Strict",
-            maxAge: 3600000, // 1 hora
+            maxAge: cookieLifetimeMilliseconds, // Tiempo de vida de la cookie en milisegundos
         });
     }
 

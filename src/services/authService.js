@@ -8,6 +8,7 @@ const nodemailer = require("nodemailer");
 const Account = require("../models/Account");
 const FailedAttempt = require("../models/FailedAttempt");
 const User = require("../models/User");
+const Config = require('../models/Config');
 //importar utilidades
 const authUtils = require("../utils/authUtils");
 const loggerUtils = require('../utils/loggerUtils');
@@ -43,11 +44,14 @@ exports.verifyPasswordWithOutHash = async (password, storedPassword) => {
 };
 
 // Generar un token JWT para el usuario autenticado
-exports.generateJWT = (user) => {
+exports.generateJWT = async (user) => {
+  const config = await Config.findOne(); // Obtener la configuración actual
+  const jwtLifetime = config ? config.jwt_lifetime : 3600; // Usar la configuración o un valor por defecto
+  
   return jwt.sign(
     { user_id: user._id, tipo_usuario: user.tipo_usuario },
     process.env.JWT_SECRET,
-    { expiresIn: "1h" } // El token expirará en 1 hora
+    { expiresIn: jwtLifetime } // Usar el tiempo de vida configurado
   );
 };
 // Verificar que un token JWT es válido
