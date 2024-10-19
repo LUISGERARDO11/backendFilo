@@ -15,7 +15,6 @@ const corsOptions = {
   },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  Access-Control-Allow-Origin: https://filo-five.vercel.app,
   credentials: true,
   optionsSuccessStatus: 200,
 };
