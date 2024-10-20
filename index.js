@@ -1,9 +1,9 @@
 /**
  * The function starts a server by connecting to a database and listening on a specified port.
  */
+require('dotenv').config();
 const app = require("./src/app"); // Importar la configuración de la app
 const connectDB = require("./src/config/dataBase"); // Importar la función de conexión a la base de datos
-
 const PORT = process.env.PORT || 3000;
 
 async function startServer() {

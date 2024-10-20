@@ -1,4 +1,5 @@
 const logger = require('../config/logger');
+require('dotenv').config();
 /**
  * The errorHandler function in JavaScript handles various types of errors and returns appropriate
  * responses with detailed messages for each case.

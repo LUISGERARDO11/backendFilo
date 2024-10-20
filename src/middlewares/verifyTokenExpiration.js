@@ -2,6 +2,7 @@
 JSON Web Token (JWT) extracted from the request object. Here's a breakdown of what the code does: */
 const jwt = require("jsonwebtoken");
 const Session = require("../models/Session");
+require('dotenv').config();
 
 // Middleware para verificar la expiración del token
 exports.verifyTokenExpiration = async (req, res, next) => {

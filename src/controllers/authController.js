@@ -13,6 +13,7 @@ const crypto = require('crypto');
 const { body, validationResult } = require('express-validator');
 const axios = require('axios');
 const jwt = require("jsonwebtoken");
+require('dotenv').config();
 
 //** GESTION DE USUARIOS  **
 // Registro de usuarios
