@@ -17,6 +17,7 @@ const userRoutes = require('./routes/userRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const companyRoutes = require('./routes/companyRoutes');
 const infoPublicRoutes = require('./routes/publicInformationRoutes');
+const regulatoryDocumentRoutes = require('./routes/regulatoryDocumentRoutes');
 
 const app = express();
 
@@ -53,6 +54,7 @@ app.use('/users', userRoutes); // Rutas de usuarios autenticados (perfil)
 app.use('/admin', adminRoutes);
 app.use('/company', companyRoutes);
 app.use('/public', infoPublicRoutes);
+app.use('/regulatory', regulatoryDocumentRoutes);
 
 // Middleware para manejar errores
 app.use(errorHandler);
