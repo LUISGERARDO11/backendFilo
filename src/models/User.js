@@ -30,7 +30,7 @@ const UserSchema = new mongoose.Schema({
     },
     estado: {
         type: String,
-        enum: ['activo', 'bloqueado', 'pendiente'],
+        enum: ['activo', 'bloqueado', 'pendiente','bloqueado_permanente'],
         default: 'pendiente'
     },
     mfa_activado: {

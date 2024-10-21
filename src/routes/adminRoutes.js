@@ -25,6 +25,9 @@ router.get('/failed-attempts', authMiddleware, tokenExpirationMiddleware.verifyT
 // Ruta para actualizar el número máximo de intentos fallidos de login en todas las cuentas
 router.put('/update-max-login-attempts', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration,  roleMiddleware(['administrador']), incidentController.updateMaxFailedLoginAttempts);
 
+// Ruta para desbloquear a un usuario que ha alcanzado el nùmero màximo de bloqueos en n dias
+router.put('/unlock-user/:userId', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration,  roleMiddleware(['administrador']), incidentController.adminUnlockUser);
+
 // ** CONFIGURACION DE METODOS DE VERIFIACION**
 // Ruta para actualizar el tiempo de vida de los tokens
 router.put('/update-token-lifetime', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration,  roleMiddleware(['administrador']), incidentController.updateTokenLifetime);

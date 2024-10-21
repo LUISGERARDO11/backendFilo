@@ -69,7 +69,8 @@ exports.verifyJWT = (token) => {
 exports.handleFailedAttempt = async (user_id, ip) => {
   // Buscar la cuenta del usuario para obtener el máximo de intentos permitidos
   const account = await Account.findOne({ user_id });
-    
+  const config = await Config.findOne();
+
   if (!account) {
       return {
           locked: false,
@@ -77,7 +78,9 @@ exports.handleFailedAttempt = async (user_id, ip) => {
       };
   }
 
-  const MAX_FAILED_ATTEMPTS = account.maximo_intentos_fallidos_login; // Obtener el máximo de intentos fallidos de la cuenta
+  const MAX_FAILED_ATTEMPTS = config.maximo_intentos_fallidos_login; // Obtener el máximo de intentos fallidos de config
+  const MAX_BLOCKS_IN_N_DAYS = config.maximo_bloqueos_en_n_dias; // Bloqueos permitidos en los últimos 30 días antes del bloqueo permanente
+  const BLOCK_PERIOD_DAYS = config.dias_periodo_de_bloqueo; // Periodo de bloqueo en dí
 
   // Buscar intentos fallidos previos del usuario
   let failedAttempt = await FailedAttempt.findOne({ user_id, is_resolved: false });
@@ -112,13 +115,28 @@ exports.handleFailedAttempt = async (user_id, ip) => {
           await user.save();
       }
 
-      loggerUtils.logUserActivity(user_id, 'account_locked', 'Cuenta bloqueada por intentos fallidos');
+      // Contar bloqueos en los últimos 30 días
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - BLOCK_PERIOD_DAYS);
+
+      const blockCount = await FailedAttempt.countDocuments({
+        user_id: user_id,
+        fecha: { $gte: cutoffDate },
+      });
+
+      // Si ha tenido más de MAX_BLOCKS_IN_30_DAYS bloqueos, bloquear indefinidamente
+      if (blockCount >= MAX_BLOCKS_IN_N_DAYS) {
+        user.estado = 'bloqueado_permanente';
+        await user.save();
+        return { locked: true, message: 'Tu cuenta ha sido bloqueada permanentemente debido a múltiples bloqueos. Contacta con soporte.' };
+      }
 
       return {
           locked: true,
           message: 'Cuenta bloqueada temporalmente debido a múltiples intentos fallidos.',
       };
   }
+
   loggerUtils.logUserActivity(user_id, 'login_failed', `Intento fallido ${failedAttempt.numero_intentos}/${MAX_FAILED_ATTEMPTS}`);
   return { locked: false, message: 'Intento fallido registrado.' };
 };

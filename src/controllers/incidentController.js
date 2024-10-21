@@ -4,6 +4,7 @@ const { body, validationResult } = require('express-validator');
 const incidentUtils = require('../utils/incidentUtils');
 const loggerUtils = require('../utils/loggerUtils');
 const Account = require('../models/Account');
+const User = require('../models/User');
 const Config = require('../models/Config');
 
 // Obtener el historial de intentos fallidos de inicio de sesión
@@ -118,6 +119,32 @@ exports.updateTokenLifetime = [
         }
     }
 ];
+
+
+// Controlador para que el administrador desbloquee una cuenta
+exports.adminUnlockUser = async (req, res) => {
+    const { userId } = req.params;
+  
+    try {
+      const user = await User.findById(userId);
+      if (!user || user.estado !== 'bloqueado_permanente') {
+        return res.status(400).json({ message: 'El usuario no está bloqueado permanentemente o no existe.' });
+      }
+  
+      // Desbloquear al usuario
+      user.estado = 'activo';
+      await user.save();
+  
+      // Limpiar los intentos fallidos
+      await FailedAttempt.updateMany({ user_id: userId }, { $set: { is_resolved: true } });
+  
+      loggerUtils.logUserActivity(req.user._id, 'admin_unlock', `El usuario ${userId} fue desbloqueado por un administrador.`);
+      return res.status(200).json({ message: 'Usuario desbloqueado exitosamente.' });
+    } catch (error) {
+      loggerUtils.logCriticalError(error);
+      return res.status(500).json({ message: 'Error al desbloquear al usuario.', error: error.message });
+    }
+  };
 
 // Obtener la configuración existente
 exports.getConfig = async (req, res) => {
