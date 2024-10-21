@@ -18,6 +18,8 @@ const adminRoutes = require('./routes/adminRoutes');
 const companyRoutes = require('./routes/companyRoutes');
 const infoPublicRoutes = require('./routes/publicInformationRoutes');
 const regulatoryDocumentRoutes = require('./routes/regulatoryDocumentRoutes');
+const emailTypeRoutes = require('./routes/emailTypeRoutes');
+const emailTemplateRoutes = require('./routes/emailTemplateRoutes');
 
 const app = express();
 
@@ -55,6 +57,8 @@ app.use('/admin', adminRoutes);
 app.use('/company', companyRoutes);
 app.use('/public', infoPublicRoutes);
 app.use('/regulatory', regulatoryDocumentRoutes);
+app.use('/email-types', emailTypeRoutes);
+app.use('/email-templates', emailTemplateRoutes);
 
 // Middleware para manejar errores
 app.use(errorHandler);

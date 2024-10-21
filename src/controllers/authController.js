@@ -78,7 +78,7 @@ exports.register = [
             savedUser.verificacionCorreoExpira = Date.now() + verificationLifetime; // Usar tiempo de vida desde la BD
             await savedUser.save();
 
-            await authService.sendVerificationEmailVersion2(savedUser.email, verificationToken);
+            await authService.sendVerificationEmail(savedUser.email, verificationToken);
             
             // Registrar actividad de creación de usuario
             loggerUtils.logUserActivity(savedUser._id, 'account_creation', 'Usuario registrado exitosamente');

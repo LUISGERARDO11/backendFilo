@@ -3,12 +3,17 @@ authentication and security. Here is a breakdown of what each function does: */
 require("dotenv").config();
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const ejs = require('ejs'); // Para renderizar la plantilla HTML
 const nodemailer = require("nodemailer");
+const transporter = require('../config/transporter');
+
 //Importar modelos
 const Account = require("../models/Account");
 const FailedAttempt = require("../models/FailedAttempt");
 const User = require("../models/User");
 const Config = require('../models/Config');
+const EmailTemplate = require('../models/EmailTemplate'); // Importar el modelo de plantilla
+const EmailType = require('../models/EmailType');
 //importar utilidades
 const authUtils = require("../utils/authUtils");
 const loggerUtils = require('../utils/loggerUtils');
@@ -155,58 +160,48 @@ exports.forcePasswordRotation = async (accountId) => {
   }
 };
 
-// Configuración del transporte SMTP usando ElasticEmail
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT, // Puerto SMTP de Gmail
-  secure: false, // true para usar SSL/TLS, false para usar el puerto predeterminado
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-  tls: {
-    rejectUnauthorized: false, // Habilitar cuando estás trabajando con un entorno de producción seguro
-  },
-});
-
 //Servicio para enviar un codigo al correo y verificarlo
-exports.sendVerificationEmailVersion2 = async (destinatario, token) => {
+exports.sendVerificationEmail = async (destinatario, token) => {
   try {
-    const body = (destinatario, token) => {
-      const baseUrls = {
-        development: ["http://localhost:3000", "http://127.0.0.1:3000"],
-        production: ["https://backend-filo.vercel.app"],
-      };
+    // Buscar la plantilla de verificación de correo en la base de datos
+    const emailType = await EmailType.findOne({ codigo: 'email_verificacion' }); // El código del tipo de email
+    if (!emailType) {
+      throw new Error('El tipo de email no existe');
+    }
 
-      const currentEnv = baseUrls[process.env.NODE_ENV]
-        ? process.env.NODE_ENV
-        : "development";
-      const verificationLink = `${baseUrls[currentEnv][0]}/auth/verify-email?token=${token}`; // Cambiado a redirigir al backend
+    const template = await EmailTemplate.findOne({ tipo: emailType._id });
+    if (!template) {
+      throw new Error('No se encontró la plantilla de verificación de correo');
+    }
 
-      return `
-            <div style="font-family: Arial, sans-serif; color: #333; background-color: #f9f9f9; padding: 20px; border-radius: 10px;">
-              <h2 style="color: #043464; font-weight: bold; font-size: 24px;">Verificación de correo electrónico</h2>
-              <p style="font-size: 16px;">Hola ${destinatario},</p>
-              <p style="font-size: 16px;">Gracias por registrarte en nuestro servicio. Por favor, verifica tu dirección de correo electrónico haciendo clic en el enlace de abajo.</p>
-              <a href="${verificationLink}" style="display: inline-block; background-color: #043464; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Verificar correo electrónico</a>
-              <p style="font-size: 16px; margin-top: 20px;">Si no puedes hacer clic en el botón, copia y pega el siguiente enlace en tu navegador:</p>
-              <p style="font-size: 16px; word-break: break-all;">${verificationLink}</p>
-              <p style="font-weight: bold; font-size: 16px; margin-top: 20px;">Atentamente,</p>
-              <p style="font-weight: bold; font-size: 16px;">El equipo de soporte</p>
-            </div>
-          `;
+    // Reemplazar variables dinámicas en el contenido de la plantilla
+    const verificationLink = `${process.env.BASE_URL}/auth/verify-email?token=${token}`; // Link de verificación
+    const data = {
+      destinatario, // Pasar el destinatario
+      token, // Pasar el token
+      verificationLink // Pasar el enlace de verificación
     };
+
+    // Renderizar el contenido HTML y el texto plano
+    const htmlContent = ejs.render(template.contenido_html, data); // Renderizar el HTML
+    const textContent = ejs.render(template.contenido_texto, data); // Renderizar el texto plano
 
     const mailOptions = {
       from: process.env.EMAIL_FROM,
       to: destinatario,
-      subject: "Verificación de correo",
-      html: body(destinatario, token),
+      subject: template.asunto, // Asunto de la plantilla
+      html: htmlContent, // Contenido HTML con las variables reemplazadas
+      text: textContent // Contenido en texto plano con las variables reemplazadas
     };
 
+    // Loggear la actividad de envío de correo
+    loggerUtils.logUserActivity(null, 'send_verification_email', `Correo de verificación enviado a ${destinatario}`);
+
+    // Enviar el correo
     await transporter.sendMail(mailOptions);
-    console.log("Verificación de correo enviado con éxito a", destinatario);
+    console.log("Correo de verificación enviado con éxito a", destinatario);
   } catch (error) {
+    loggerUtils.logCriticalError(error);
     console.error("Error al enviar el correo de verificación:", error);
     throw new Error("Error al enviar el correo electrónico");
   }
