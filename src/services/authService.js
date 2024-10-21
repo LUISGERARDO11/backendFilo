@@ -37,7 +37,6 @@ exports.verifyPassword = async (password, hashedPassword) => {
     throw new Error("Error al verificar la contraseña: " + error.message);
   }
 };
-
 exports.verifyPasswordWithOutHash = async (password, storedPassword) => {
   try {
     // Comparar directamente las dos contraseñas en texto plano
@@ -47,7 +46,6 @@ exports.verifyPasswordWithOutHash = async (password, storedPassword) => {
     throw new Error("Error al verificar la contraseña: " + error.message);
   }
 };
-
 // Generar un token JWT para el usuario autenticado
 exports.generateJWT = async (user) => {
   const config = await Config.findOne(); // Obtener la configuración actual
@@ -159,7 +157,32 @@ exports.forcePasswordRotation = async (accountId) => {
     );
   }
 };
+// Método para verificar si el usuario está bloqueado
+exports.isUserBlocked = async (userId) => {
+  try {
+    // Buscar la cuenta asociada al usuario
+    const account = await Account.findOne({ user_id: userId }).populate(
+      "user_id"
+    );
 
+    if (!account) {
+      return { blocked: false, message: "Cuenta no encontrada." };
+    }
+
+    // Verificar si el usuario asociado a la cuenta está bloqueado
+    const user = account.user_id;
+    if (user.estado === "bloqueado") {
+      return { blocked: true, message: "El usuario está bloqueado." };
+    }
+
+    // Si el usuario no está bloqueado
+    return { blocked: false, message: "El usuario no está bloqueado." };
+  } catch (error) {
+    console.error("Error verificando el estado del usuario:", error);
+    throw new Error("Error verificando el estado del usuario.");
+  }
+};
+//** SERVICIOS PARA ENVIO DE CORREOS ELECTRONICOS EN BASE A PLANTILLAS PREESTABLECICDAS **
 //Servicio para enviar un codigo al correo y verificarlo
 exports.sendVerificationEmail = async (destinatario, token) => {
   try {
@@ -209,61 +232,81 @@ exports.sendVerificationEmail = async (destinatario, token) => {
 // Servicio para enviar un código OTP a un usuario para autenticación MFA
 exports.sendMFAOTPEmail = async (destinatario, otp) => {
   try {
-    const body = `
-      <div style="font-family: Arial, sans-serif; color: #333; background-color: #f9f9f9; padding: 20px; border-radius: 10px;">
-        <h2 style="color: #043464; font-weight: bold; font-size: 24px;">Código de Autenticación MFA</h2>
-        <p style="font-size: 16px;">Hola ${destinatario},</p>
-        <p style="font-size: 16px;">Has solicitado iniciar sesión utilizando autenticación multifactor. Introduce el siguiente código en la interfaz de autenticación:</p>
-        <div style="font-size: 24px; font-weight: bold; letter-spacing: 8px; color: #043464; text-align: center; margin-top: 20px;">
-          ${otp.split("").join(" ")}
-        </div>
-        <p style="font-size: 16px; margin-top: 20px;">Este código es válido solo por 15 minutos.</p>
-        <p style="font-weight: bold; font-size: 16px; margin-top: 20px;">Atentamente,</p>
-        <p style="font-weight: bold; font-size: 16px;">El equipo de soporte</p>
-      </div>
-    `;
+    // Buscar la plantilla de autenticación MFA en la base de datos
+    const emailType = await EmailType.findOne({ codigo: 'mfa_autenticacion' }); // Código del tipo de email
+    if (!emailType) {
+      throw new Error('El tipo de email no existe');
+    }
+
+    const template = await EmailTemplate.findOne({ tipo: emailType._id });
+    if (!template) {
+      throw new Error('No se encontró la plantilla de autenticación MFA');
+    }
+
+    // Reemplazar variables dinámicas en el contenido de la plantilla
+    const data = {
+      destinatario,
+      otp: otp.split("").join(" "), // Formatear el OTP
+    };
+
+    // Renderizar el contenido HTML y el texto plano
+    const htmlContent = ejs.render(template.contenido_html, data);
+    const textContent = ejs.render(template.contenido_texto, data);
 
     const mailOptions = {
       from: process.env.EMAIL_FROM,
       to: destinatario,
-      subject: "Código de Autenticación MFA",
-      html: body,
+      subject: template.asunto,
+      html: htmlContent,
+      text: textContent
     };
 
+    loggerUtils.logUserActivity(null, 'send_mfa_otp', `Correo con OTP para MFA enviado a ${destinatario}`);
     await transporter.sendMail(mailOptions);
     console.log("Correo con OTP para MFA enviado con éxito a", destinatario);
   } catch (error) {
+    loggerUtils.logCriticalError(error);
     console.error("Error al enviar el correo con OTP para MFA:", error);
     throw new Error("Error al enviar el correo electrónico");
   }
 };
-//Servicio para enviar un codigo OTP a un usuario para recuperacion de contraseña
+// Servicio para enviar un código OTP a un usuario para recuperación de contraseña
 exports.sendOTPEmail = async (destinatario, otp) => {
   try {
-    const body = `
-              <div style="font-family: Arial, sans-serif; color: #333; background-color: #f9f9f9; padding: 20px; border-radius: 10px;">
-                  <h2 style="color: #d9534f; font-weight: bold; font-size: 24px;">Código de recuperación de contraseña</h2>
-                  <p style="font-size: 16px;">Hola ${destinatario},</p>
-                  <p style="font-size: 16px;">Has solicitado recuperar tu contraseña. Introduce el siguiente código en la interfaz de recuperación de contraseña:</p>
-                  <div style="font-size: 24px; font-weight: bold; letter-spacing: 8px; color: #d9534f; text-align: center; margin-top: 20px;">
-                      ${otp.split("").join(" ")}
-                  </div>
-                  <p style="font-size: 16px; margin-top: 20px;">Este código es válido solo por 15 minutos.</p>
-                  <p style="font-weight: bold; font-size: 16px; margin-top: 20px;">Atentamente,</p>
-                  <p style="font-weight: bold; font-size: 16px;">El equipo de soporte</p>
-              </div>
-          `;
+    // Buscar la plantilla de recuperación de contraseña en la base de datos
+    const emailType = await EmailType.findOne({ codigo: 'recuperacion_contrasena' }); // Código del tipo de email
+    if (!emailType) {
+      throw new Error('El tipo de email no existe');
+    }
+
+    const template = await EmailTemplate.findOne({ tipo: emailType._id });
+    if (!template) {
+      throw new Error('No se encontró la plantilla de recuperación de contraseña');
+    }
+
+    // Reemplazar variables dinámicas en el contenido de la plantilla
+    const data = {
+      destinatario,
+      otp: otp.split("").join(" ") // Formatear el OTP
+    };
+
+    // Renderizar el contenido HTML y el texto plano
+    const htmlContent = ejs.render(template.contenido_html, data);
+    const textContent = ejs.render(template.contenido_texto, data);
 
     const mailOptions = {
       from: process.env.EMAIL_FROM,
       to: destinatario,
-      subject: "Código de recuperación de contraseña",
-      html: body,
+      subject: template.asunto,
+      html: htmlContent,
+      text: textContent
     };
 
+    loggerUtils.logUserActivity(null, 'send_otp_recovery', `Correo con OTP enviado a ${destinatario}`);
     await transporter.sendMail(mailOptions);
     console.log("Correo con OTP enviado con éxito a", destinatario);
   } catch (error) {
+    loggerUtils.logCriticalError(error);
     console.error("Error al enviar el correo con OTP:", error);
     throw new Error("Error al enviar el correo electrónico");
   }
@@ -271,56 +314,40 @@ exports.sendOTPEmail = async (destinatario, otp) => {
 // Servicio para enviar el correo de notificación de cambio de contraseña
 exports.sendPasswordChangeNotification = async (destinatario) => {
   try {
-    // Cuerpo del correo electrónico
-    const body = `
-        <div style="font-family: Arial, sans-serif; color: #043464; background-color: #ECF0F1; padding: 20px; border-radius: 10px;">
-          <h2 style="color: #043464; font-weight: bold; font-size: 24px;">Cambio de contraseña exitoso</h2>
-          <p style="font-size: 16px;">Hola ${destinatario},</p>
-          <p style="font-size: 16px;">Queremos informarte que has cambiado tu contraseña exitosamente. Si no realizaste este cambio, por favor contacta a nuestro equipo de soporte inmediatamente.</p>
-          <p style="font-size: 16px;">Si no solicitaste este cambio, te recomendamos que asegures la seguridad de tu cuenta cambiando tu contraseña inmediatamente.</p>
-          <p style="font-weight: bold; font-size: 16px;">Atentamente,</p>
-          <p style="font-weight: bold; font-size: 16px;">Tu equipo de soporte</p>
-        </div>
-      `;
+    // Buscar la plantilla de notificación de cambio de contraseña en la base de datos
+    const emailType = await EmailType.findOne({ codigo: 'notificacion_cambio_contrasena' }); // Código del tipo de email
+    if (!emailType) {
+      throw new Error('El tipo de email no existe');
+    }
 
-    // Opciones del correo
-    const mailOptions = {
-      from: process.env.EMAIL_FROM, // Correo del remitente configurado en .env
-      to: destinatario, // Destinatario del correo
-      subject: "Notificación de cambio de contraseña", // Asunto del correo
-      html: body, // Contenido HTML del correo
+    const template = await EmailTemplate.findOne({ tipo: emailType._id });
+    if (!template) {
+      throw new Error('No se encontró la plantilla de notificación de cambio de contraseña');
+    }
+
+    // Reemplazar variables dinámicas en el contenido de la plantilla
+    const data = {
+      destinatario
     };
 
-    // Enviar el correo
+    // Renderizar el contenido HTML y el texto plano
+    const htmlContent = ejs.render(template.contenido_html, data);
+    const textContent = ejs.render(template.contenido_texto, data);
+
+    const mailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: destinatario,
+      subject: template.asunto,
+      html: htmlContent,
+      text: textContent
+    };
+
+    loggerUtils.logUserActivity(null, 'send_password_change_notification', `Correo de notificación de cambio de contraseña enviado a ${destinatario}`);
     await transporter.sendMail(mailOptions);
-    console.log("Correo de notificación enviado con éxito a", destinatario);
+    console.log("Correo de notificación de cambio de contraseña enviado con éxito a", destinatario);
   } catch (error) {
-    console.error("Error al enviar el correo de notificación:", error);
+    loggerUtils.logCriticalError(error);
+    console.error("Error al enviar el correo de notificación de cambio de contraseña:", error);
     throw new Error("Error al enviar el correo electrónico");
-  }
-};
-// Método para verificar si el usuario está bloqueado
-exports.isUserBlocked = async (userId) => {
-  try {
-    // Buscar la cuenta asociada al usuario
-    const account = await Account.findOne({ user_id: userId }).populate(
-      "user_id"
-    );
-
-    if (!account) {
-      return { blocked: false, message: "Cuenta no encontrada." };
-    }
-
-    // Verificar si el usuario asociado a la cuenta está bloqueado
-    const user = account.user_id;
-    if (user.estado === "bloqueado") {
-      return { blocked: true, message: "El usuario está bloqueado." };
-    }
-
-    // Si el usuario no está bloqueado
-    return { blocked: false, message: "El usuario no está bloqueado." };
-  } catch (error) {
-    console.error("Error verificando el estado del usuario:", error);
-    throw new Error("Error verificando el estado del usuario.");
   }
 };
