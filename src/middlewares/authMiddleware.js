@@ -11,21 +11,20 @@ const authService = require("../services/authService");
 // Middleware para verificar la autenticación del token JWT desde cookies
 // Middleware para verificar la autenticación del token JWT desde cookies
 const authMiddleware = (req, res, next) => {
-  const token = req.cookies.token; // Extraer el token de la cookie
+  const token = req.cookies['token']; // Extraer el token de la cookie
 
   if (!token) {
     return res.status(401).json({ message: "Acceso no autorizado. Token no proporcionado." });
   }
 
   try {
-    // Verificar el token utilizando la clave secreta
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // Añadir la información del usuario decodificado a la solicitud
-    req.user = decoded; 
-
-    // Continuar con la siguiente operación
-    next();
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+      if (err) {
+          return res.sendStatus(403); // Token inválido o error de verificación
+      }
+      req.user = decoded; // Guarda el usuario decodificado en el objeto de la solicitud
+      next(); // Continúa con el siguiente middleware
+    });
   } catch (err) {
     return res.status(401).json({ message: "Token inválido o expirado" });
   }
