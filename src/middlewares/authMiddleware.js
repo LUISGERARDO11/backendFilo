@@ -24,9 +24,11 @@ const authMiddleware = (req, res, next) => {
   try {
     jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
       if (err) {
+         console.error('Error de verificación del token:', err);
           return res.sendStatus(403); // Token inválido o error de verificación
       }
       req.user = decoded; // Guarda el usuario decodificado en el objeto de la solicitud
+      console.log('Usuario decodificado:', req.user);
       next(); // Continúa con el siguiente middleware
     });
   } catch (err) {
