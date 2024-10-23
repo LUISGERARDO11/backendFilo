@@ -15,6 +15,7 @@ const authMiddleware = (req, res, next) => {
   const secret = process.env.JWT_SECRET;
   
   console.log('Token:', token); // Log del token
+  console.log('Todas las cookies:', req.cookies);
   console.log('JWT_SECRET:', secret); // Log del secreto
   
   if (!token) {
