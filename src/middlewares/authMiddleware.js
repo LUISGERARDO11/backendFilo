@@ -12,7 +12,7 @@ const authService = require("../services/authService");
 // Middleware para verificar la autenticación del token JWT desde cookies
 const authMiddleware = (req, res, next) => {
   const token = req.cookies['token']; // Extraer el token de la cookie
-
+  console.log(req.cookies['token'])
   if (!token) {
     return res.status(401).json({ message: "Acceso no autorizado. Token no proporcionado." });
   }

@@ -283,6 +283,11 @@ exports.logout = async (req, res) => {
         return res.status(404).json({ message: 'Sesión no encontrada.' });
       }
   
+      // Validar si la sesión ya fue cerrada/revocada
+      if (session.revocada) {
+        return res.status(400).json({ message: 'La sesión ya fue cerrada anteriormente.' });
+      }
+
       // Marcar la sesión como revocada
       session.revocada = true;
       await session.save();
