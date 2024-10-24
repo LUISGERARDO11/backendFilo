@@ -731,7 +731,7 @@ exports.checkAuth = async (req, res, next) => {
         res.cookie("token", newToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
-            sameSite: "None",
+            sameSite: 'None',
             maxAge: cookieLifetimeMilliseconds, // Tiempo de vida de la cookie en milisegundos
         });
     }
