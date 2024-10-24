@@ -30,4 +30,7 @@ router.get('/version-history/:titulo', authMiddleware, tokenExpirationMiddleware
 // Ruta para obtener un documento regulatorio por su id
 router.get('/document/:documentId', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration,roleMiddleware(['administrador']), regulatoryDocumentController.getDocumentById);
 
+// Ruta para obtener un documento regulatorio por su id
+router.get('/', authMiddleware, regulatoryDocumentController.getAllCurrentVersions);
+
 module.exports = router;

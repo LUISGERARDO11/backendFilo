@@ -29,27 +29,34 @@ exports.getFailedLoginAttempts = async (req, res) => {
     }
 };
 
+//ACTUALIZAR
 // Actualizar el máximo de intentos fallidos de inicio de sesión
 exports.updateMaxFailedLoginAttempts = async (req, res) => {
     const { maxAttempts } = req.body;
 
     // Validar que el número de intentos fallidos esté en el rango permitido
-    if (!Number.isInteger(maxAttempts) || maxAttempts < 2 || maxAttempts > 11) {
+    if (!Number.isInteger(maxAttempts) || maxAttempts < 3 || maxAttempts > 10) {
         return res.status(400).json({
             message: 'El valor de intentos fallidos debe ser un número entre 3 y 10.'
         });
     }
 
     try {
-        // Actualizar el campo maximo_intentos_fallidos_login en todas las cuentas
-        const result = await Account.updateMany({}, { $set: { 'maximo_intentos_fallidos_login': maxAttempts } });
+        // Actualizar el campo maximo_intentos_fallidos_login en la colección Config
+        const result = await Config.findOneAndUpdate({}, { $set: { maximo_intentos_fallidos_login: maxAttempts } }, { new: true });
+
+        if (!result) {
+            return res.status(404).json({
+                message: 'No se encontró la configuración global para actualizar.'
+            });
+        }
 
         // Registrar evento de seguridad: actualización del máximo de intentos fallidos
-        loggerUtils.logSecurityEvent(req.user ? req.user._id : 'admin', 'account-settings', 'update', `Actualización del máximo de intentos fallidos a ${maxAttempts}.`);
+        loggerUtils.logSecurityEvent(req.user ? req.user._id : 'admin', 'config-settings', 'update', `Actualización del máximo de intentos fallidos a ${maxAttempts}.`);
 
         return res.status(200).json({
-            message: `Se ha actualizado el máximo de intentos fallidos a ${maxAttempts} en todas las cuentas.`,
-            modifiedCount: result.nModified // Mostrar cuántas cuentas fueron modificadas
+            message: `Se ha actualizado el máximo de intentos fallidos a ${maxAttempts} en la configuración global.`,
+            config: result // Devolver la configuración actualizada
         });
     } catch (error) {
         loggerUtils.logCriticalError(error);
