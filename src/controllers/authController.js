@@ -114,11 +114,11 @@ exports.verifyEmailVersion2 = async (req, res) => {
          // Redirigir al usuario a la página de inicio de sesión del frontend
          const baseUrls = {
             development: [ 'http://localhost:3000', 'http://localhost:4200', 'http://127.0.0.1:4200', 'http://127.0.0.1:3000'],
-            production: ['https://frontend-filo.vercel.app']
+            production: ['https://web-filograficos.vercel.app']
         };
 
         const currentEnv = baseUrls[process.env.NODE_ENV] ? process.env.NODE_ENV : 'development';
-        const loginUrl = `${baseUrls[currentEnv][0]}/`;
+        const loginUrl = `${baseUrls[currentEnv][0]}/login`;
 
         res.redirect(loginUrl);
 
