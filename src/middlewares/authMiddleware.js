@@ -18,7 +18,6 @@ const authMiddleware = (req, res, next) => {
   console.log('Todas las cookies:', req.cookies);
   console.log('JWT_SECRET:', secret); // Log del secreto
   
-  
   if (!token) {
     return res.status(401).json({ message: "Acceso no autorizado. Token no proporcionado." });
   }
