@@ -249,7 +249,7 @@ exports.login = [
             res.cookie('token', token, {
                 httpOnly: true, 
                 secure: process.env.NODE_ENV === 'production', 
-                sameSite: 'Strict',
+                sameSite: 'None',
                 maxAge: cookieLifetime // 1 hora
             });
 
@@ -296,7 +296,7 @@ exports.logout = async (req, res) => {
       res.clearCookie('token', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'Strict',
+        sameSite: 'None',
       });
   
       // Responder con un mensaje de éxito
@@ -413,7 +413,7 @@ exports.verifyOTPMFA = async (req, res) => {
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'Strict',
+            sameSite: 'None',
             maxAge: cookieLifetime // 1 hora
         });
 
@@ -731,7 +731,7 @@ exports.checkAuth = async (req, res, next) => {
         res.cookie("token", newToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
-            sameSite: 'Strict',
+            sameSite: 'None',
             maxAge: cookieLifetimeMilliseconds, // Tiempo de vida de la cookie en milisegundos
         });
     }
