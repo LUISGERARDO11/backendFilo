@@ -22,8 +22,6 @@ router.delete('/delete-customer/:id', authMiddleware, tokenExpirationMiddleware.
 router.get('/failed-attempts', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration, roleMiddleware(['administrador']), incidentController.getFailedLoginAttempts);
 
 // ** CONFIGURACION DE BLOQUEO**
-// Ruta para actualizar el número máximo de intentos fallidos de login en todas las cuentas
-router.put('/update-max-login-attempts', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration,  roleMiddleware(['administrador']), incidentController.updateMaxFailedLoginAttempts);
 
 // Ruta para desbloquear a un usuario que ha alcanzado el nùmero màximo de bloqueos en n dias
 router.put('/unlock-user/:userId', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration,  roleMiddleware(['administrador']), incidentController.adminUnlockUser);

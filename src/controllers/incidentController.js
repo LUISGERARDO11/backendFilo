@@ -29,63 +29,53 @@ exports.getFailedLoginAttempts = async (req, res) => {
     }
 };
 
-// Actualizar el máximo de intentos fallidos de inicio de sesión
-exports.updateMaxFailedLoginAttempts = async (req, res) => {
-    const { maxAttempts } = req.body;
-
-    // Validar que el número de intentos fallidos esté en el rango permitido
-    if (!Number.isInteger(maxAttempts) || maxAttempts < 2 || maxAttempts > 11) {
-        return res.status(400).json({
-            message: 'El valor de intentos fallidos debe ser un número entre 3 y 10.'
-        });
-    }
-
-    try {
-        // Actualizar el campo maximo_intentos_fallidos_login en todas las cuentas
-        const result = await Account.updateMany({}, { $set: { 'maximo_intentos_fallidos_login': maxAttempts } });
-
-        // Registrar evento de seguridad: actualización del máximo de intentos fallidos
-        loggerUtils.logSecurityEvent(req.user ? req.user._id : 'admin', 'account-settings', 'update', `Actualización del máximo de intentos fallidos a ${maxAttempts}.`);
-
-        return res.status(200).json({
-            message: `Se ha actualizado el máximo de intentos fallidos a ${maxAttempts} en todas las cuentas.`,
-            modifiedCount: result.nModified // Mostrar cuántas cuentas fueron modificadas
-        });
-    } catch (error) {
-        loggerUtils.logCriticalError(error);
-        return res.status(500).json({
-            message: 'Error al actualizar el máximo de intentos fallidos.',
-            error: error.message
-        });
-    }
-};
-
 //Actualizar los tiempos de vida de tokens y codigos
 exports.updateTokenLifetime = [
-    // Validar y sanitizar entradas
+    // Validación de cada campo con límites especificados
     body('jwt_lifetime')
-        .isInt({ min: 300, max: 2592000 }) // JWT entre 5 minutos y 30 días
+        .optional()
+        .isInt({ min: 300, max: 2592000 })
         .withMessage('El tiempo de vida del JWT debe estar entre 5 minutos y 30 días.')
-        .toInt(), // Convertir a entero
+        .toInt(),
     body('verificacion_correo_lifetime')
-        .isInt({ min: 300, max: 2592000 }) // Tiempo de vida del enlace de verificación entre 5 minutos y 30 días
+        .optional()
+        .isInt({ min: 300, max: 2592000 })
         .withMessage('El tiempo de vida del enlace de verificación debe estar entre 5 minutos y 30 días.')
         .toInt(),
     body('otp_lifetime')
-        .isInt({ min: 60, max: 1800 }) // OTP entre 1 minuto y 30 minutos
-        .withMessage('El tiempo de vida del OTP debe estar entre 1 minuto y 30 minutos.')
+        .optional()
+        .isInt({ min: 60, max: 1800 })
+        .withMessage('El tiempo de vida del OTP debe estar entre 1 y 30 minutos.')
         .toInt(),
     body('sesion_lifetime')
-        .isInt({ min: 300, max: 2592000 }) // Sesión entre 5 minutos y 30 días
+        .optional()
+        .isInt({ min: 300, max: 2592000 })
         .withMessage('El tiempo de vida de la sesión debe estar entre 5 minutos y 30 días.')
         .toInt(),
     body('cookie_lifetime')
-        .isInt({ min: 300, max: 2592000 }) // Cookie entre 5 minutos y 30 días
+        .optional()
+        .isInt({ min: 300, max: 2592000 })
         .withMessage('El tiempo de vida de la cookie debe estar entre 5 minutos y 30 días.')
         .toInt(),
     body('expirationThreshold_lifetime')
-        .isInt({ min: 60, max: 1800 }) // expirationThreshold entre 1 minuto y 30 minutos
-        .withMessage('El tiempo de vida de expirationThreshold debe estar entre 1 minuto y 30 minutos.')
+        .optional()
+        .isInt({ min: 60, max: 1800 })
+        .withMessage('El tiempo de vida de expirationThreshold debe estar entre 1 y 30 minutos.')
+        .toInt(),
+    body('maximo_intentos_fallidos_login')
+        .optional()
+        .isInt({ min: 3, max: 10 })
+        .withMessage('El valor de intentos fallidos debe estar entre 3 y 10.')
+        .toInt(),
+    body('maximo_bloqueos_en_n_dias')
+        .optional()
+        .isInt({ min: 1, max: 10 })
+        .withMessage('El número máximo de bloqueos en N días debe estar entre 1 y 10.')
+        .toInt(),
+    body('dias_periodo_de_bloqueo')
+        .optional()
+        .isInt({ min: 1, max: 365 })
+        .withMessage('El periodo de días para el bloqueo debe estar entre 1 y 365 días.')
         .toInt(),
 
     async (req, res) => {
@@ -94,23 +84,45 @@ exports.updateTokenLifetime = [
             return res.status(400).json({ errors: errors.array() });
         }
 
-        const { jwt_lifetime, verificacion_correo_lifetime, otp_lifetime, sesion_lifetime } = req.body;
+        // Construir dinámicamente el objeto de actualización
+        const updateFields = {};
+        const allowedFields = [
+            'jwt_lifetime',
+            'verificacion_correo_lifetime',
+            'otp_lifetime',
+            'sesion_lifetime',
+            'cookie_lifetime',
+            'expirationThreshold_lifetime',
+            'maximo_intentos_fallidos_login',
+            'maximo_bloqueos_en_n_dias',
+            'dias_periodo_de_bloqueo'
+        ];
+
+        // Solo añadir a updateFields los campos que se recibieron en la solicitud
+        allowedFields.forEach(field => {
+            if (req.body[field] !== undefined) {
+                updateFields[field] = req.body[field];
+            }
+        });
+
+        // Validar si no se recibieron campos para actualizar
+        if (Object.keys(updateFields).length === 0) {
+            return res.status(400).json({ message: 'No se proporcionaron campos para actualizar.' });
+        }
 
         try {
-            // Actualizar la configuración
             const config = await Config.findOneAndUpdate(
-                {}, // No especificamos un filtro ya que es una colección de un solo documento
-                {
-                    jwt_lifetime,
-                    verificacion_correo_lifetime,
-                    otp_lifetime,
-                    sesion_lifetime
-                },
-                { new: true, upsert: true } // Retornar el documento actualizado y crear si no existe
+                {}, // Asumiendo que solo hay un documento de configuración
+                { $set: updateFields }, // Actualizar solo los campos proporcionados
+                { new: true, upsert: true } // Retornar el documento actualizado, crear si no existe
             );
 
-            // Registrar la actividad de actualización de configuración
-            loggerUtils.logUserActivity(req.user ? req.user._id : 'admin', 'update', `Configuración de tiempos de expiración actualizada.`);
+            // Registrar la actividad de actualización
+            loggerUtils.logUserActivity(
+                req.user ? req.user._id : 'admin',
+                'update',
+                'Configuración de tiempos de expiración e intentos fallidos actualizada.'
+            );
 
             res.status(200).json({ message: 'Configuración actualizada correctamente.', config });
         } catch (error) {

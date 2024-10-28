@@ -16,4 +16,7 @@ router.get('/company/info', companyController.getCompanyInfo);
 // Ruta para obtener un documento regulatorio (público, sin seguridad)
 router.get('/regulatory-document/:titulo', regulatoryDocumentController.getCurrentVersion);
 
+// Ruta para obtener todos los documentos regulatorios (público, sin seguridad)
+router.get('/regulatory-document', regulatoryDocumentController.getAllCurrentVersions);
+
 module.exports = router; 

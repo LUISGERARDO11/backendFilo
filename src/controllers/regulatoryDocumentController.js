@@ -185,6 +185,48 @@ exports.updateRegulatoryDocument = async (req, res) => {
         res.status(500).json({ message: 'Error al actualizar el documento regulatorio.', error: error.message });
     }
 };
+// Método para obtener la versión vigente de todos los documentos regulatorios
+exports.getAllCurrentVersions = async (req, res) => {
+    try {
+        // Buscar todos los documentos regulatorios que no estén eliminados
+        const documents = await RegulatoryDocument.find({ eliminado: false });
+
+        if (!documents || documents.length === 0) {
+            return res.status(404).json({ message: 'No se encontraron documentos regulatorios.' });
+        }
+
+        // Crear un array con las versiones vigentes de todos los documentos
+        const currentVersions = documents.map(document => {
+            // Encontrar la versión vigente del documento
+            const currentVersion = document.versiones.find(v => v.vigente === true && !v.eliminado);
+
+            // Si hay una versión vigente, agregarla al resultado
+            if (currentVersion) {
+                return {
+                    titulo: document.titulo,
+                    version: currentVersion.version,
+                    contenido: currentVersion.contenido,
+                    fecha_vigencia: document.fecha_vigencia
+                };
+            }
+        }).filter(Boolean); // Filtrar para eliminar los documentos que no tienen una versión vigente
+
+        if (currentVersions.length === 0) {
+            return res.status(404).json({ message: 'No se encontraron versiones vigentes.' });
+        }
+
+        // Registrar el acceso a todas las versiones vigentes
+        loggerUtils.logUserActivity(req.user ? req.user._id : 'anon', 'view', 'Se consultaron todas las versiones vigentes de documentos regulatorios.');
+
+        // Devolver las versiones vigentes de todos los documentos
+        res.status(200).json({ versiones_vigentes: currentVersions });
+
+    } catch (error) {
+        loggerUtils.logCriticalError(error);
+        res.status(500).json({ message: 'Error al obtener las versiones vigentes de los documentos regulatorios.', error: error.message });
+    }
+};
+
 //Método para obtener la version vigente de un documento regulatorio
 exports.getCurrentVersion = async (req, res) => {
     const { titulo } = req.params;
