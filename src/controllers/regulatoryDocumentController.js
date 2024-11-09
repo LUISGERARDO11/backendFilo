@@ -203,6 +203,7 @@ exports.getAllCurrentVersions = async (req, res) => {
             // Si hay una versión vigente, agregarla al resultado
             if (currentVersion) {
                 return {
+                    id:document._id,
                     titulo: document.titulo,
                     version: currentVersion.version,
                     contenido: currentVersion.contenido,
@@ -251,6 +252,7 @@ exports.getCurrentVersion = async (req, res) => {
 
         // Devolver la versión vigente
         res.status(200).json({
+            id:document._id,
             titulo: document.titulo,
             version: currentVersion.version,
             contenido: currentVersion.contenido,
@@ -279,6 +281,7 @@ exports.getVersionHistory = async (req, res) => {
 
         // Devolver el historial completo de versiones del documento
         const versionHistory = document.versiones.map(version => ({
+            id:version._id,
             version: version.version,
             contenido: version.contenido,
             fecha_creacion: version.fecha_creacion,
@@ -312,6 +315,7 @@ exports.getDocumentById = async (req, res) => {
 
         // Devolver el documento con todas sus versiones
         res.status(200).json({
+            id:_id,
             titulo: document.titulo,
             versiones: document.versiones.map(version => ({
                 version: version.version,
