@@ -4,6 +4,7 @@ the '../controllers/authController' file. */
 
 const express = require('express');
 const router = express.Router();
+const { doubleCsrfProtection } = require('../config/csrfConfig');
 //Importar controladores
 const authController = require('../controllers/authController');
 //Importar middlewares
