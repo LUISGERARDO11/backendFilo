@@ -48,9 +48,11 @@ exports.getFailedAttemptsData = async (periodo) => {
               _id: "$user._id",
               nombre: { $first: "$user.nombre" },
               email: { $first: "$user.email" },
+              estado: { $first: "$user.estado" },
               tipo_usuario: { $first: "$user.tipo_usuario" },
               numero_intentos: { $sum: "$numero_intentos" }, // Sumar los intentos fallidos
               is_resolved: { $first: "$is_resolved" },
+              fecha: { $first: "$fecha" },
           },
       },
       {
