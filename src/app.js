@@ -1,11 +1,12 @@
 /* This code snippet is setting up a Node.js Express application. Here's a breakdown of what it's
 doing: */
 const express = require('express');
-const cookieParser = require('cookie-parser');
-const corsConfig = require('./config/corsConfig'); 
 const morgan = require('morgan');
-//Importar el logger
+const cookieParser = require('cookie-parser');
+//importar configuraciones
 const logger = require('./config/logger');
+const corsConfig = require('./config/corsConfig'); 
+const {generateToken,doubleCsrfProtection} = require('./config/csrfConfig');
 // Importar los middlewares
 const errorHandler = require('./middlewares/errorHandler');
 const { generalLimiter } = require('./middlewares/expressRateLimit');
@@ -16,10 +17,10 @@ const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const companyRoutes = require('./routes/companyRoutes');
-const infoPublicRoutes = require('./routes/publicInformationRoutes');
-const regulatoryDocumentRoutes = require('./routes/regulatoryDocumentRoutes');
 const emailTypeRoutes = require('./routes/emailTypeRoutes');
 const emailTemplateRoutes = require('./routes/emailTemplateRoutes');
+const infoPublicRoutes = require('./routes/publicInformationRoutes');
+const regulatoryDocumentRoutes = require('./routes/regulatoryDocumentRoutes');
 
 const app = express();
 
@@ -34,6 +35,14 @@ app.use(generalLimiter);
 
 // Configura cookie-parser
 app.use(cookieParser());
+
+//Ruta para que el cliente obtenga un token csrf
+app.get('/csrf-token', (req, res) => {
+  const csrfToken = generateToken(req, res);
+  res.json({ csrfToken });
+});
+
+app.use(doubleCsrfProtection);
 
 // Integrar Morgan con Winston para registrar las solicitudes HTTP
 app.use(morgan('combined', {
