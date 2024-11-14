@@ -10,10 +10,10 @@ const companyController = require('../controllers/companyProfileController');
 
 // Configuración de multer para almacenamiento en memoria
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const upload = multer({ storage: storage });
 
 // Ruta para crear la información de la empresa (solo administradores)
-router.post('/create', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration, roleMiddleware(['administrador']), companyController.createCompany);
+router.post('/create', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration, roleMiddleware(['administrador']), upload.single('logo'), companyController.createCompany);
 
 // Ruta para editar la información de la empresa (solo administradores)
 router.put('/update', authMiddleware, tokenExpirationMiddleware.verifyTokenExpiration, roleMiddleware(['administrador']), upload.single('logo'), companyController.updateCompanyInfo);

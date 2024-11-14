@@ -38,8 +38,10 @@ exports.createCompany = [
         try {
              // Subir el logo a Cloudinary si está presente
              if (req.file) {
-                logoUrl = await cloudinaryService.uploadToCloudinary(req.file.path, 'company_logos');
+                console.log('Archivo recibido:', req.file); // Verificar el archivo recibido
+                logoUrl = await cloudinaryService.uploadToCloudinary(req.file.buffer);
             }
+
 
             // Verificar si ya existe una empresa
             const existingCompany = await Company.findOne();
@@ -118,7 +120,7 @@ exports.updateCompanyInfo = [
 
              // Subir el logo actualizado a Cloudinary si está presente en la solicitud
             if (req.file) {
-                const logoUrl = await cloudinaryService.uploadToCloudinary(req.file.buffer, 'company_logos'); // Cambiado a `req.file.buffer`
+                const logoUrl = await cloudinaryService.uploadToCloudinary(req.file.buffer);
                 companyInfo.logo = logoUrl;
                 console.log("Archivo subido a Cloudinary con URL:", logoUrl);
             }
