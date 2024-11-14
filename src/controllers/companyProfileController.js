@@ -1,4 +1,4 @@
-const cloudinaryService = require('../services/cloudinaryService');
+const { uploadToCloudinary } = require('../services/cloudinaryService');
 const Company = require('../models/Company');
 const { body, validationResult } = require('express-validator');
 const loggerUtils = require('../utils/loggerUtils');
@@ -33,13 +33,16 @@ exports.createCompany = [
         }
 
         const { nombre, slogan, titulo_pagina, direccion, telefono, email, redes_sociales } = req.body;
-        let logoUrl = null;
 
         try {
              // Subir el logo a Cloudinary si está presente
+             console.log('Archivo recibido:', req.file);
+
+             let logoUrl = null;
              if (req.file) {
-                logoUrl = await cloudinaryService.uploadToCloudinary(req.file.path, 'company_logos');
-            }
+                 logoUrl = await uploadToCloudinary(req.file.buffer); // Subir logo si existe
+                 console.log('URL del logo:', logoUrl); // Confirmar URL del logo
+             }
 
             // Verificar si ya existe una empresa
             const existingCompany = await Company.findOne();
@@ -117,13 +120,14 @@ exports.updateCompanyInfo = [
             }
 
             // Subir el logo actualizado a Cloudinary si está presente en la solicitud
+            let logoUrl = null;
             if (req.file) {
-                const logoUrl = await cloudinaryService.uploadToCloudinary(req.file.buffer, 'company_logos'); // Cambiado a `req.file.buffer`
-                companyInfo.logo = logoUrl;
-                console.log("Archivo subido a Cloudinary con URL:", logoUrl);
+                logoUrl = await uploadToCloudinary(req.file.buffer); // Subir logo si existe
             }
+
             // Actualizar los campos con los valores proporcionados en la solicitud
             if (nombre) companyInfo.nombre = nombre;
+            if (logoUrl) companyInfo.logo = logoUrl;
             if (slogan) companyInfo.slogan = slogan;
             if (titulo_pagina) companyInfo.titulo_pagina = titulo_pagina;
             if (direccion) companyInfo.direccion = { ...companyInfo.direccion, ...direccion };
