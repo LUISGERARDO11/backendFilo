@@ -1,3 +1,5 @@
+const multer = require('multer');
+const cloudinaryService = require('../services/cloudinaryService');
 const Company = require('../models/Company');
 const { body, validationResult } = require('express-validator');
 const loggerUtils = require('../utils/loggerUtils');
@@ -6,7 +8,6 @@ const loggerUtils = require('../utils/loggerUtils');
 exports.createCompany = [
     // Validar y sanitizar las entradas
     body('nombre').isString().trim().escape().withMessage('El nombre es requerido.'),
-    body('logo').optional().isURL().withMessage('El logo debe ser una URL válida.'),
     body('slogan').optional().isString().isLength({ max: 100 }).trim().escape().withMessage('El eslogan debe ser un texto válido y no exceder los 100 caracteres.'),
     body('titulo_pagina').optional().isString().isLength({ max: 60 }).trim().escape().withMessage('El título de la página no debe exceder los 60 caracteres.'),
     
@@ -32,9 +33,15 @@ exports.createCompany = [
             return res.status(400).json({ errors: errors.array() });
         }
 
-        const { nombre, logo, slogan, titulo_pagina, direccion, telefono, email, redes_sociales } = req.body;
+        const { nombre, slogan, titulo_pagina, direccion, telefono, email, redes_sociales } = req.body;
+        let logoUrl = null;
 
         try {
+             // Subir el logo a Cloudinary si está presente
+             if (req.file) {
+                logoUrl = await cloudinaryService.uploadToCloudinary(req.file.path, 'company_logos');
+            }
+
             // Verificar si ya existe una empresa
             const existingCompany = await Company.findOne();
             if (existingCompany) {
@@ -44,7 +51,7 @@ exports.createCompany = [
             // Crear una nueva empresa
             const newCompany = new Company({
                 nombre,
-                logo,
+                logo: logoUrl,
                 slogan,
                 titulo_pagina,
                 direccion,
@@ -71,7 +78,6 @@ exports.createCompany = [
 exports.updateCompanyInfo = [
     // Validar y sanitizar las entradas
     body('nombre').optional().isString().trim().escape().withMessage('El nombre debe ser un texto válido.'),
-    body('logo').optional().isURL().withMessage('El logo debe ser una URL válida.'),
     body('slogan').optional().isString().isLength({ max: 100 }).trim().escape().withMessage('El eslogan no debe exceder los 100 caracteres.'),
     body('titulo_pagina').optional().isString().isLength({ max: 60 }).trim().escape().withMessage('El título de la página no debe exceder los 60 caracteres.'),
 
@@ -97,7 +103,7 @@ exports.updateCompanyInfo = [
             return res.status(400).json({ errors: errors.array() });
         }
 
-        const { nombre, logo, slogan, titulo_pagina, direccion, telefono, email, redes_sociales } = req.body;
+        const { nombre, slogan, titulo_pagina, direccion, telefono, email, redes_sociales } = req.body;
 
         try {
             // Buscar la información de la empresa
@@ -105,6 +111,11 @@ exports.updateCompanyInfo = [
 
             if (!companyInfo) {
                 return res.status(404).json({ message: 'La información de la empresa no se encontró.' });
+            }
+            // Subir el logo actualizado a Cloudinary si está presente en la solicitud
+            if (req.file) {
+                const logoUrl = await cloudinaryService.uploadToCloudinary(req.file.path, 'company_logos');
+                companyInfo.logo = logoUrl;
             }
 
             // Actualizar los campos con los valores proporcionados en la solicitud
