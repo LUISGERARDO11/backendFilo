@@ -1,10 +1,10 @@
 const cloudinary = require('../config/cloudinaryConfig');
 
-const uploadToCloudinary = async (filePath, folder = 'company') => {
+const uploadToCloudinary = async (fileBuffer, folder = 'company') => {
     try {
-        const result = await cloudinary.uploader.upload(filePath, {
+        const result = await cloudinary.uploader.upload_stream({
             folder: folder,
-            resource_type: 'auto' // Permite subir imágenes, videos, etc.
+            resource_type: 'auto'
         });
         return result.secure_url; // Devuelve la URL segura del archivo subido
     } catch (error) {

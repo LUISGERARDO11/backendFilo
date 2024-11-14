@@ -1,4 +1,3 @@
-const multer = require('multer');
 const cloudinaryService = require('../services/cloudinaryService');
 const Company = require('../models/Company');
 const { body, validationResult } = require('express-validator');
@@ -119,12 +118,10 @@ exports.updateCompanyInfo = [
 
             // Subir el logo actualizado a Cloudinary si está presente en la solicitud
             if (req.file) {
-                console.log("Subiendo el archivo a Cloudinary...");
-                const logoUrl = await cloudinaryService.uploadToCloudinary(req.file.path, 'company_logos');
+                const logoUrl = await cloudinaryService.uploadToCloudinary(req.file.buffer, 'company_logos'); // Cambiado a `req.file.buffer`
                 companyInfo.logo = logoUrl;
                 console.log("Archivo subido a Cloudinary con URL:", logoUrl);
             }
-
             // Actualizar los campos con los valores proporcionados en la solicitud
             if (nombre) companyInfo.nombre = nombre;
             if (slogan) companyInfo.slogan = slogan;
