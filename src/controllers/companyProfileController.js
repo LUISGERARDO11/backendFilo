@@ -98,6 +98,9 @@ exports.updateCompanyInfo = [
     body('redes_sociales.instagram').optional().isURL().withMessage('La URL de Instagram debe ser válida.'),
 
     async (req, res) => {
+        // Log para verificar el archivo recibido
+        console.log("Archivo recibido en req.file:", req.file ? req.file.originalname : "No se recibió archivo");
+
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
             return res.status(400).json({ errors: errors.array() });
@@ -107,20 +110,23 @@ exports.updateCompanyInfo = [
 
         try {
             // Buscar la información de la empresa
+            console.log("Buscando información de la empresa en la base de datos...");
             const companyInfo = await Company.findOne();
 
             if (!companyInfo) {
                 return res.status(404).json({ message: 'La información de la empresa no se encontró.' });
             }
+
             // Subir el logo actualizado a Cloudinary si está presente en la solicitud
             if (req.file) {
+                console.log("Subiendo el archivo a Cloudinary...");
                 const logoUrl = await cloudinaryService.uploadToCloudinary(req.file.path, 'company_logos');
                 companyInfo.logo = logoUrl;
+                console.log("Archivo subido a Cloudinary con URL:", logoUrl);
             }
 
             // Actualizar los campos con los valores proporcionados en la solicitud
             if (nombre) companyInfo.nombre = nombre;
-            if (logo) companyInfo.logo = logo;
             if (slogan) companyInfo.slogan = slogan;
             if (titulo_pagina) companyInfo.titulo_pagina = titulo_pagina;
             if (direccion) companyInfo.direccion = { ...companyInfo.direccion, ...direccion };
@@ -128,6 +134,7 @@ exports.updateCompanyInfo = [
             if (email) companyInfo.email = email;
             if (redes_sociales) companyInfo.redes_sociales = { ...companyInfo.redes_sociales, ...redes_sociales };
 
+            console.log("Guardando la información actualizada de la empresa en la base de datos...");
             // Guardar los cambios en la base de datos
             const updatedCompany = await companyInfo.save();
 
@@ -138,6 +145,7 @@ exports.updateCompanyInfo = [
             res.status(200).json({ message: 'Información de la empresa actualizada exitosamente.', company: updatedCompany });
         } catch (error) {
             loggerUtils.logCriticalError(error);
+            console.error("Error al actualizar la información de la empresa:", error);
             res.status(500).json({ message: 'Error al actualizar la información de la empresa.', error: error.message });
         }
     }
