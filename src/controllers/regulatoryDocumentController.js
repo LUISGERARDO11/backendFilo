@@ -2,43 +2,80 @@ const RegulatoryDocument = require('../models/RegulatoryDocument');
 const loggerUtils = require('../utils/loggerUtils');
 
 // Método para crear un nuevo documento regulatorio
-exports.createRegulatoryDocument = async (req, res) => {
+// Método para crear o actualizar un documento regulatorio
+exports.createRegulatoryDocument  = async (req, res) => {
     try {
-        // Validar si ya existe un documento vigente con el mismo título
+        // Buscar un documento con el mismo título que no esté eliminado
         const existingDocument = await RegulatoryDocument.findOne({ titulo: req.body.titulo, eliminado: false });
 
         if (existingDocument) {
-            return res.status(400).json({ message: `Ya existe un documento regulatorio vigente con el título: ${req.body.titulo}.` });
+            // El documento existe y no está eliminado, se agregará una nueva versión
+            const currentVersion = existingDocument.versiones.find(v => v.vigente === true);
+
+            if (!currentVersion) {
+                return res.status(400).json({ message: 'No se encontró ninguna versión vigente del documento.' });
+            }
+
+            // Marcar la versión actual como no vigente
+            currentVersion.vigente = false;
+
+            // Generar la nueva versión (incremental, por ejemplo, de 1.0 a 2.0)
+            const versionActual = parseFloat(existingDocument.version_actual);
+            const nuevaVersion = (versionActual + 1.0).toFixed(1);
+
+            // Crear la nueva versión con los datos del request
+            const nuevaVersionDocumento = {
+                version: nuevaVersion,
+                contenido: req.body.contenido,
+                vigente: true,
+                eliminado: false
+            };
+
+            // Añadir la nueva versión al array de versiones
+            existingDocument.versiones.push(nuevaVersionDocumento);
+
+            // Actualizar la versión actual y la fecha de vigencia
+            existingDocument.version_actual = nuevaVersion;
+            existingDocument.fecha_vigencia = req.body.fecha_vigencia || new Date();
+
+            // Guardar el documento actualizado
+            await existingDocument.save();
+
+            // Registrar la actividad de actualización
+            loggerUtils.logUserActivity(req.user._id || 'admin', 'update', `Documento regulatorio ${existingDocument.titulo} actualizado a la versión ${nuevaVersion}.`);
+
+            return res.status(200).json({
+                message: `Documento regulatorio actualizado a la versión ${nuevaVersion}.`,
+                document: existingDocument
+            });
         }
 
-        // Crear la primera versión del documento
+        // Si no existe un documento no eliminado, crear uno nuevo
         const nuevaVersion = {
-            version: '1.0', // La primera versión del documento
-            contenido: req.body.contenido, // Contenido en formato Markdown
-            vigente: true, // Esta versión es la vigente
-            eliminado: false // No está eliminada
+            version: '1.0',
+            contenido: req.body.contenido,
+            vigente: true,
+            eliminado: false
         };
 
-        // Crear el nuevo documento regulatorio
         const nuevoDocumento = new RegulatoryDocument({
             titulo: req.body.titulo,
-            versiones: [nuevaVersion], // Añadir la primera versión
-            fecha_vigencia: req.body.fecha_vigencia || Date.now(), // Fecha de vigencia
-            version_actual: '1.0', // Asignar la primera versión como la actual
-            eliminado: false // El documento no está eliminado
+            versiones: [nuevaVersion],
+            fecha_vigencia: req.body.fecha_vigencia || new Date(),
+            version_actual: '1.0',
+            eliminado: false
         });
 
-        // Guardar el nuevo documento en la base de datos
+        // Guardar el nuevo documento
         await nuevoDocumento.save();
 
-        // Registrar la actividad de creación del documento
-        loggerUtils.logUserActivity(req.user ? req.user._id : 'admin', 'create', `Documento regulatorio creado: ${req.body.titulo}, versión: 1.0`);
+        // Registrar la actividad de creación
+        loggerUtils.logUserActivity(req.user._id || 'admin', 'create', `Documento regulatorio creado: ${req.body.titulo}, versión: 1.0`);
 
-        // Responder con éxito
-        res.status(201).json({ message: 'Documento regulatorio creado exitosamente.', document: nuevoDocumento });
+        return res.status(201).json({ message: 'Documento regulatorio creado exitosamente.', document: nuevoDocumento });
     } catch (error) {
         loggerUtils.logCriticalError(error);
-        res.status(500).json({ message: 'Error al crear el documento regulatorio.', error: error.message });
+        return res.status(500).json({ message: 'Error al procesar el documento regulatorio.', error: error.message });
     }
 };
 // Método para eliminar lógicamente un documento completo regulatorio
