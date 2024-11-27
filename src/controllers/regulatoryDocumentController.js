@@ -2,8 +2,7 @@ const RegulatoryDocument = require('../models/RegulatoryDocument');
 const loggerUtils = require('../utils/loggerUtils');
 
 // Método para crear un nuevo documento regulatorio
-// Método para crear o actualizar un documento regulatorio
-exports.createRegulatoryDocument  = async (req, res) => {
+exports.createRegulatoryDocument = async (req, res) => {
     try {
         // Buscar un documento con el mismo título que no esté eliminado
         const existingDocument = await RegulatoryDocument.findOne({ titulo: req.body.titulo, eliminado: false });
@@ -19,16 +18,21 @@ exports.createRegulatoryDocument  = async (req, res) => {
             // Marcar la versión actual como no vigente
             currentVersion.vigente = false;
 
-            // Generar la nueva versión (incremental, por ejemplo, de 1.0 a 2.0)
-            const versionActual = parseFloat(existingDocument.version_actual);
-            const nuevaVersion = (versionActual + 1.0).toFixed(1);
+            // Encontrar la última versión válida (vigente o eliminada)
+            const lastValidVersion = existingDocument.versiones
+                .filter(v => !isNaN(parseFloat(v.version))) // Asegurar que la versión sea numérica
+                .reduce((prev, curr) => parseFloat(curr.version) > parseFloat(prev.version) ? curr : prev, { version: "0.0" });
+
+            const lastVersionNumber = parseFloat(lastValidVersion.version);
+            const nuevaVersion = (lastVersionNumber + 1.0).toFixed(1);
 
             // Crear la nueva versión con los datos del request
             const nuevaVersionDocumento = {
                 version: nuevaVersion,
                 contenido: req.body.contenido,
                 vigente: true,
-                eliminado: false
+                eliminado: false,
+                fecha_creacion: new Date()
             };
 
             // Añadir la nueva versión al array de versiones
@@ -55,7 +59,8 @@ exports.createRegulatoryDocument  = async (req, res) => {
             version: '1.0',
             contenido: req.body.contenido,
             vigente: true,
-            eliminado: false
+            eliminado: false,
+            fecha_creacion: new Date()
         };
 
         const nuevoDocumento = new RegulatoryDocument({
