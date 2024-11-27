@@ -269,25 +269,29 @@ exports.getVersionHistory = async (req, res) => {
     const { titulo } = req.params;
 
     try {
-        // Buscar el documento regulatorio por su título
-        const document = await RegulatoryDocument.findOne({ titulo });
+        // Buscar el documento más reciente que no esté eliminado
+        const document = await RegulatoryDocument.findOne({ 
+            titulo, 
+            eliminado: false 
+        }).sort({ updatedAt: -1 }); // Ordenar por el campo updatedAt en orden descendente para obtener el más reciente
 
         if (!document) {
-            return res.status(404).json({ message: 'Documento regulatorio no encontrado.' });
+            return res.status(404).json({ message: 'Documento regulatorio no encontrado o eliminado.' });
         }
 
         // Registrar la consulta de historial de versiones
         loggerUtils.logUserActivity(req.user ? req.user._id : 'anon', 'view', `Historial de versiones del documento ${document.titulo} consultado.`);
 
-        // Devolver el historial completo de versiones del documento
+        // Generar el historial de versiones del documento
         const versionHistory = document.versiones.map(version => ({
-            id:version._id,
+            id: version._id,
             version: version.version,
             contenido: version.contenido,
             fecha_creacion: version.fecha_creacion,
             estado: version.eliminado ? 'Eliminado' : (version.vigente ? 'Vigente' : 'No vigente')
         }));
 
+        // Responder con el historial de versiones
         res.status(200).json({
             titulo: document.titulo,
             historial: versionHistory
