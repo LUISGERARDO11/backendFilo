@@ -16,8 +16,8 @@ exports.updateProfile = [
     body('nombre').optional().isString().trim().escape(),
     body('direccion').optional().isObject().custom(value => {
         // Validar campos de dirección
-        if (!value.calle || !value.ciudad || !value.estado || !value.codigo_postal) {
-            throw new Error('Todos los campos de la dirección son obligatorios (calle, ciudad, estado, código postal).');
+        if (!value.calle || !value.estado || !value.codigo_postal) {
+            throw new Error('Todos los campos de la dirección son obligatorios (calle, estado, código postal).');
         }
         return true;
     }),
@@ -55,8 +55,8 @@ exports.updateUserProfile = [
     // Validar y sanitizar entradas
     body('direccion').isObject().custom(value => {
         // Validar campos de dirección
-        if (!value.calle || !value.ciudad || !value.estado || !value.codigo_postal) {
-            throw new Error('Todos los campos de la dirección son obligatorios (calle, ciudad, estado, código postal).');
+        if (!value.calle  || !value.estado || !value.codigo_postal) {
+            throw new Error('Todos los campos de la dirección son obligatorios (calle, estado, código postal).');
         }
         return true;
     }),
