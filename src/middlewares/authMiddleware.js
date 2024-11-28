@@ -38,7 +38,14 @@ const authMiddleware = (req, res, next) => {
     jwt.verify(token, secret, (err, decoded) => {
       if (err) {
         console.error('Error de verificación del token:', err);
-        return res.sendStatus(403); // Token inválido o error de verificación
+
+        // Enviar una respuesta JSON con un código de error 403
+        res.status(403).json({
+          message: "Token inválido o error de verificación",
+        });
+
+        // Redirigir a la página de inicio de sesión
+        return res.redirect(loginUrl);
       }
       req.user = decoded; // Guarda el usuario decodificado en el objeto de la solicitud
       console.log('Usuario decodificado:', req.user);
