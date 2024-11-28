@@ -40,7 +40,7 @@ exports.createRegulatoryDocument = async (req, res) => {
 
             // Actualizar la versión actual y la fecha de vigencia
             existingDocument.version_actual = nuevaVersion;
-            existingDocument.fecha_vigencia = req.body.fecha_vigencia || new Date();
+            existingDocument.fecha_vigencia = new Date();
 
             // Guardar el documento actualizado
             await existingDocument.save();
@@ -66,7 +66,7 @@ exports.createRegulatoryDocument = async (req, res) => {
         const nuevoDocumento = new RegulatoryDocument({
             titulo: req.body.titulo,
             versiones: [nuevaVersion],
-            fecha_vigencia: req.body.fecha_vigencia || new Date(),
+            fecha_vigencia: new Date(),
             version_actual: '1.0',
             eliminado: false
         });
@@ -173,7 +173,7 @@ exports.deleteRegulatoryDocumentVersion = async (req, res) => {
 // Método para actualizar el documento regulatorio y crear una nueva versión
 exports.updateRegulatoryDocument = async (req, res) => {
     const { documentId } = req.params;
-    const { nuevo_contenido, nueva_fecha_vigencia } = req.body;
+    const { nuevo_contenido } = req.body;
 
     try {
         // Buscar el documento regulatorio por su ID
@@ -214,7 +214,7 @@ exports.updateRegulatoryDocument = async (req, res) => {
 
         // Actualizar la versión actual y la fecha de vigencia en el documento
         document.version_actual = nuevaVersion;
-        document.fecha_vigencia = nueva_fecha_vigencia ? new Date(nueva_fecha_vigencia) : new Date();
+        document.fecha_vigencia = new Date();
 
         // Guardar el documento actualizado
         await document.save();
