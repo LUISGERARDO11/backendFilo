@@ -39,21 +39,17 @@ const authMiddleware = (req, res, next) => {
       if (err) {
         console.error('Error de verificación del token:', err);
 
-        // Enviar una respuesta JSON con un código de error 403
-        res.status(403).json({
-          message: "Token inválido o error de verificación",
-        });
-
-        // Redirigir a la página de inicio de sesión
+        // Redirigir a la página de inicio de sesión directamente
         return res.redirect(loginUrl);
       }
+
       req.user = decoded; // Guarda el usuario decodificado en el objeto de la solicitud
       console.log('Usuario decodificado:', req.user);
       next(); // Continúa con el siguiente middleware
     });
   } catch (err) {
     console.error("Error al procesar el token:", err);
-    return res.status(401).json({ message: "Token inválido o expirado" });
+    return res.redirect(loginUrl); // En caso de un error inesperado, redirige al login
   }
 };
 
